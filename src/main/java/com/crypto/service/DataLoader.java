@@ -1,7 +1,7 @@
 package com.crypto.service;
 
 import com.crypto.service.utils.ConnectionHandler;
-import io.r2dbc.spi.Connection;
+import io.r2dbc.spi.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -17,7 +17,7 @@ import java.util.stream.Stream;
 public class DataLoader {
   private static Mono<Connection> connectionMono;
 
-    // TODO: Output data in file or something else
+  // TODO: Output data in file or something else
   public static void selectQuery() {
     connectionMono
         .flatMapMany(connection -> connection.createStatement("SELECT * FROM btc_data").execute())
@@ -63,10 +63,17 @@ public class DataLoader {
 
     connectionMono
         .flatMapMany(
-            connection ->
-                Flux.fromIterable(data)
-                    .flatMap(
-                        line -> {
+            connection -> {
+              Flux<String> dataFlux =
+                  Flux.fromIterable(data); // Преобразование списка данных в поток
+
+              return dataFlux
+                  .buffer(400) // Группируем данные по пакетам по 500 строк
+                  .flatMap(
+                      batchData -> {
+                        Batch batch = connection.createBatch(); // Создаем новый батч
+
+                        for (String line : batchData) {
                           String[] values = line.split(",");
 
                           LocalDateTime open_time =
@@ -76,25 +83,28 @@ public class DataLoader {
                               LocalDateTime.ofInstant(
                                   Instant.ofEpochMilli(Long.parseLong(values[6])), ZoneOffset.UTC);
 
-                          return connection
-                              .createStatement(
-                                  "INSERT INTO btc_data VALUES (:open_time, :open_price, :high_price, :low_price, "
-                                      + ":close_price, :volume, :close_time, :quote_volume, :count, "
-                                      + ":taker_buy_volume, :taker_buy_quote_volume, :ignore_column)")
-                              .bind("open_time", open_time)
-                              .bind("open_price", values[1])
-                              .bind("high_price", values[2])
-                              .bind("low_price", values[3])
-                              .bind("close_price", values[4])
-                              .bind("volume", values[5])
-                              .bind("close_time", close_time)
-                              .bind("quote_volume", values[7])
-                              .bind("count", values[8])
-                              .bind("taker_buy_volume", values[9])
-                              .bind("taker_buy_quote_volume", values[10])
-                              .bind("ignore_column", values[11])
-                              .execute();
-                        }))
+                          String query =
+                              String.format(
+                                  "INSERT INTO btc_data VALUES ('%s', %s, %s, %s, %s, %s, '%s', %s, %s, %s, %s, %s)",
+                                  open_time,
+                                  values[1],
+                                  values[2],
+                                  values[3],
+                                  values[4],
+                                  values[5],
+                                  close_time,
+                                  values[7],
+                                  values[8],
+                                  values[9],
+                                  values[10],
+                                  values[11]);
+
+                          batch.add(query); // Добавляем запрос в пакет
+                        }
+
+                        return batch.execute(); // Выполняем пакет
+                      });
+            })
         .onErrorResume(
             throwable -> {
               throwable.printStackTrace();
@@ -103,7 +113,7 @@ public class DataLoader {
         .blockLast();
   }
 
-  public static void truncateData() {
+  public static void truncateTable() {
     connectionMono
         .flatMapMany(connection -> connection.createStatement("TRUNCATE btc_data").execute())
         .onErrorResume(
