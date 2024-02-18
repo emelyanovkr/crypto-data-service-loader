@@ -1,64 +1,27 @@
 package com.crypto.service;
 
-import io.r2dbc.spi.ConnectionFactories;
-import io.r2dbc.spi.ConnectionFactory;
-import io.r2dbc.spi.ConnectionFactoryOptions;
+import com.crypto.service.utils.ConnectionHandler;
+import io.r2dbc.spi.Batch;
+import io.r2dbc.spi.Connection;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Properties;
 import java.util.stream.Stream;
 
 // TODO: SELECT OUTPUT DATA IN FILE OR SOMETHING ELSE
-// Decomposition in several functions, maybe creating interface
-// ACQUIRE LOCK
-// implement nullaway?
 
 public class DataLoader {
-
-  private static ConnectionFactory connectionFactory;
-
-  public static Properties loadProperties() {
-    Properties properties = new Properties();
-    try (InputStream input = new FileInputStream("src/main/resources/connection_data.properties")) {
-      properties.load(input);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-    return properties;
-  }
-
-  public static void initConnectionFactory() {
-    Properties properties = loadProperties();
-
-    ConnectionFactoryOptions options =
-        ConnectionFactoryOptions.builder()
-            .option(ConnectionFactoryOptions.DRIVER, properties.getProperty("DRIVER"))
-            .option(ConnectionFactoryOptions.PROTOCOL, properties.getProperty("PROTOCOL"))
-            .option(ConnectionFactoryOptions.HOST, properties.getProperty("HOST"))
-            .option(ConnectionFactoryOptions.PORT, Integer.parseInt(properties.getProperty("PORT")))
-            .option(ConnectionFactoryOptions.USER, properties.getProperty("USER"))
-            .option(ConnectionFactoryOptions.PASSWORD, properties.getProperty("PASSWORD"))
-            .option(ConnectionFactoryOptions.DATABASE, properties.getProperty("DATABASE"))
-            .option(
-                ConnectionFactoryOptions.SSL, Boolean.parseBoolean(properties.getProperty("SSL")))
-            .build();
-
-    connectionFactory = ConnectionFactories.get(options);
-  }
+  private static Mono<Connection> connectionMono;
 
   public static void selectQuery() {
-    Mono.from(connectionFactory.create())
+    connectionMono
         .flatMapMany(connection -> connection.createStatement("SELECT * FROM btc_data").execute())
         .flatMap(
             result ->
@@ -87,62 +50,20 @@ public class DataLoader {
               return Mono.empty();
             })
         .doOnNext(System.out::println)
-        .subscribe();
-
-    try {
-      Thread.sleep(5000);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public static void insertQuery() {
-    Mono.from(connectionFactory.create())
-        .flatMapMany(
-            connection ->
-                connection
-                    .createStatement(
-                        "INSERT INTO btc_data VALUES (:open_time, :open_price, :high_price, :low_price, "
-                            + ":close_price, :volume, :close_time, :quote_volume, :count, "
-                            + ":taker_buy_volume, :taker_buy_quote_volume, :ignore_column)")
-                    .bind("open_time", LocalDateTime.now())
-                    .bind("open_price", "3353.21")
-                    .bind("high_price", "3112.1")
-                    .bind("low_price", "59931.11")
-                    .bind("close_price", "99911.21")
-                    .bind("volume", "21001.1")
-                    .bind("close_time", LocalDateTime.now())
-                    .bind("quote_volume", "111.11")
-                    .bind("count", "990")
-                    .bind("taker_buy_volume", "66.56")
-                    .bind("taker_buy_quote_volume", "7761.11")
-                    .bind("ignore_column", "0")
-                    .execute())
-        .onErrorResume(
-            throwable -> {
-              throwable.printStackTrace();
-              return Mono.empty();
-            })
-        .subscribe();
-
-    try {
-      Thread.sleep(5000);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
+        .blockLast();
   }
 
   public static void readFromFile() {
     final List<String> data;
 
     try (Stream<String> stream =
-        Files.lines(Path.of("src/main/resources/USDTRON-1m-2024-02-04.csv"))) {
+        Files.lines(Paths.get("src/main/resources/USDTRON-1m-2024-02-04.csv"))) {
       data = stream.toList();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
 
-    Mono.from(connectionFactory.create())
+    connectionMono
         .flatMapMany(
             connection ->
                 Flux.fromIterable(data)
@@ -181,18 +102,23 @@ public class DataLoader {
               throwable.printStackTrace();
               return Mono.empty();
             })
-        .subscribe();
+        .blockLast();
+  }
+
+  public static void truncateData()
+  {
+      connectionMono.flatMapMany(connection ->
+              connection.createStatement("TRUNCATE btc_data").execute()).onErrorResume(throwable ->
+      {
+          throwable.printStackTrace();
+          return  Mono.empty();
+      }).subscribe();
   }
 
   public static void main(String[] args) {
-    initConnectionFactory();
+    connectionMono = ConnectionHandler.initConnection();
 
+    truncateData();
     selectQuery();
-
-    try {
-      Thread.sleep(50000);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
   }
 }
