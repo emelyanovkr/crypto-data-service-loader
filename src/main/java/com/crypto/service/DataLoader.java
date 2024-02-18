@@ -44,18 +44,32 @@ public class DataLoader {
     ConnectionFactory connectionFactory = ConnectionFactories.get(options);
 
     Mono.from(connectionFactory.create())
-        .flatMapMany(connection -> connection.createStatement("SELECT * FROM test_table").execute())
+        .flatMapMany(connection -> connection.createStatement("SELECT * FROM btc_data").execute())
         .flatMap(
             result ->
                 result.map(
                     (row, rowMetadata) ->
                         String.format(
-                            "id: %s,\nprice: %.2f, \ncount: %d, \ntime: %s, \nsome_value: %.2f\n",
-                            row.get("id", String.class),
-                            row.get("price", Float.class),
+                            " open_time: %s\n open_price: %.2f\n high_price: %.2f\n low_price: %.2f\n"
+                                + " close_price: %.2f\n volume: %.2f\n close_time: %s\n quote_volume: %.2f\n"
+                                + " count: %d\n taker_buy_volume: %.2f\n taker_buy_quote_volume: %.2f\n ignore_column: %d\n",
+                            row.get("open_time", String.class),
+                            row.get("open_price", Float.class),
+                            row.get("high_price", Float.class),
+                            row.get("low_price", Float.class),
+                            row.get("close_price", Float.class),
+                            row.get("volume", Float.class),
+                            row.get("close_time", LocalDateTime.class),
+                            row.get("quote_volume", Float.class),
                             row.get("count", Integer.class),
-                            row.get("time", LocalDateTime.class),
-                            row.get("some_value", Float.class))))
+                            row.get("taker_buy_volume", Float.class),
+                            row.get("taker_buy_quote_volume", Float.class),
+                            row.get("ignore_column", Integer.class))))
+        .onErrorResume(
+            throwable -> {
+              throwable.printStackTrace();
+              return Mono.empty();
+            })
         .doOnNext(System.out::println)
         .subscribe();
 
@@ -64,12 +78,21 @@ public class DataLoader {
             connection -> {
               return connection
                   .createStatement(
-                      "INSERT INTO test_table VALUES (:id, :price, :count, :time, :some_value)")
-                  .bind("id", UUID.randomUUID())
-                  .bind("price", "5332.5")
-                  .bind("count", "1011")
-                  .bind("time", LocalDateTime.now())
-                  .bind("some_value", "319.22")
+                      "INSERT INTO btc_data VALUES (:open_time, :open_price, :high_price, :low_price, " +
+                              ":close_price, :volume, :close_time, :quote_volume, :count, " +
+                              ":taker_buy_volume, :taker_buy_quote_volume, :ignore_column)")
+                  .bind("open_time", LocalDateTime.now())
+                  .bind("open_price", "3353.21")
+                  .bind("high_price", "3112.1")
+                  .bind("low_price", "59931.11")
+                  .bind("close_price", "99911.21")
+                  .bind("volume", "21001.1")
+                  .bind("close_time", LocalDateTime.now())
+                  .bind("quote_volume", "111.11")
+                  .bind("count", "990")
+                  .bind("taker_buy_volume", "66.56")
+                  .bind("taker_buy_quote_volume", "7761.11")
+                  .bind("ignore_column", "0")
                   .execute();
             })
         .onErrorResume(
@@ -80,7 +103,7 @@ public class DataLoader {
         .subscribe();
 
     try {
-      Thread.sleep(10000);
+      Thread.sleep(5000);
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
