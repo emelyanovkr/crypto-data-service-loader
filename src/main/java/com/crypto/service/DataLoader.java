@@ -1,7 +1,6 @@
 package com.crypto.service;
 
 import com.crypto.service.utils.ConnectionHandler;
-import io.r2dbc.spi.Batch;
 import io.r2dbc.spi.Connection;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -15,11 +14,10 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Stream;
 
-// TODO: SELECT OUTPUT DATA IN FILE OR SOMETHING ELSE
-
 public class DataLoader {
   private static Mono<Connection> connectionMono;
 
+    // TODO: Output data in file or something else
   public static void selectQuery() {
     connectionMono
         .flatMapMany(connection -> connection.createStatement("SELECT * FROM btc_data").execute())
@@ -105,20 +103,34 @@ public class DataLoader {
         .blockLast();
   }
 
-  public static void truncateData()
-  {
-      connectionMono.flatMapMany(connection ->
-              connection.createStatement("TRUNCATE btc_data").execute()).onErrorResume(throwable ->
-      {
-          throwable.printStackTrace();
-          return  Mono.empty();
-      }).subscribe();
+  public static void truncateData() {
+    connectionMono
+        .flatMapMany(connection -> connection.createStatement("TRUNCATE btc_data").execute())
+        .onErrorResume(
+            throwable -> {
+              throwable.printStackTrace();
+              return Mono.empty();
+            })
+        .blockLast();
+  }
+
+  public static void countRecords() {
+    connectionMono
+        .flatMapMany(
+            connection -> connection.createStatement("SELECT COUNT(*) FROM btc_data").execute())
+        .flatMap(result -> result.map((row, rowMetadata) -> row.get(0, Integer.class)))
+        .doOnNext(line -> System.out.println("CURRENT RECORDS IN DATA " + line))
+        .onErrorResume(
+            throwable -> {
+              throwable.printStackTrace();
+              return Mono.empty();
+            })
+        .blockLast();
   }
 
   public static void main(String[] args) {
     connectionMono = ConnectionHandler.initConnection();
 
-    truncateData();
-    selectQuery();
+    readFromFile();
   }
 }
