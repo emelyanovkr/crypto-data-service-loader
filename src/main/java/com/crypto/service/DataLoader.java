@@ -65,13 +65,13 @@ public class DataLoader {
         .flatMapMany(
             connection -> {
               Flux<String> dataFlux =
-                  Flux.fromIterable(data); // Преобразование списка данных в поток
+                  Flux.fromIterable(data);
 
               return dataFlux
-                  .buffer(400) // Группируем данные по пакетам по 500 строк
+                  .buffer(400)
                   .flatMap(
                       batchData -> {
-                        Batch batch = connection.createBatch(); // Создаем новый батч
+                        Batch batch = connection.createBatch();
 
                         for (String line : batchData) {
                           String[] values = line.split(",");
@@ -99,10 +99,10 @@ public class DataLoader {
                                   values[10],
                                   values[11]);
 
-                          batch.add(query); // Добавляем запрос в пакет
+                          batch.add(query);
                         }
 
-                        return batch.execute(); // Выполняем пакет
+                        return batch.execute();
                       });
             })
         .onErrorResume(
