@@ -1,18 +1,15 @@
 package com.crypto.service;
 
 import com.crypto.service.utils.ConnectionHandler;
+import com.crypto.service.utils.SourceReader;
 import io.r2dbc.spi.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.stream.Stream;
 
 public class DataLoader {
   private static Mono<Connection> connectionMono;
@@ -51,15 +48,8 @@ public class DataLoader {
         .blockLast();
   }
 
-  public static void readFromFile() {
-    final List<String> data;
-
-    try (Stream<String> stream =
-        Files.lines(Paths.get("src/main/resources/USDTRON-1m-2024-02-04.csv"))) {
-      data = stream.toList();
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+  public static void insertData() {
+    final List<String> data = SourceReader.readFromFile();
 
     connectionMono
         .flatMapMany(
@@ -85,7 +75,9 @@ public class DataLoader {
 
                           String query =
                               String.format(
-                                  "INSERT INTO btc_data VALUES ('%s', %s, %s, %s, %s, %s, '%s', %s, %s, %s, %s, %s)",
+                                  "INSERT INTO btc_data SETTINGS async_insert=1, wait_for_async_insert=1," +
+                                          " async_insert_busy_timeout_ms=1, async_insert_max_data_size=1100 " +
+                                          "VALUES ('%s', %s, %s, %s, %s, %s, '%s', %s, %s, %s, %s, %s)",
                                   open_time,
                                   values[1],
                                   values[2],
@@ -141,6 +133,7 @@ public class DataLoader {
   public static void main(String[] args) {
     connectionMono = ConnectionHandler.initConnection();
 
-    readFromFile();
+    truncateTable();
+    insertData();
   }
 }
