@@ -8,6 +8,9 @@ import reactor.core.publisher.Mono;
 import java.util.Properties;
 
 public class ConnectionHandler {
+
+  public volatile static int connectionCount = 0;
+
   public static Mono<Connection> initConnection() {
     Properties properties = PropertiesLoader.loadProperties();
 
@@ -24,6 +27,7 @@ public class ConnectionHandler {
                 ConnectionFactoryOptions.SSL, Boolean.parseBoolean(properties.getProperty("SSL")))
             .build();
 
+    ++connectionCount;
     return Mono.from(ConnectionFactories.get(options).create());
   }
 }
