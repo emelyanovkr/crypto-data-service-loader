@@ -2,6 +2,7 @@ package com.crypto.service;
 
 import com.crypto.service.utils.ConnectionHandler;
 import com.crypto.service.utils.SourceReader;
+import com.google.common.collect.Lists;
 import io.r2dbc.spi.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -9,7 +10,10 @@ import reactor.core.publisher.Mono;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.*;
 
 public class DataLoader {
   private static Mono<Connection> connectionMono;
@@ -48,17 +52,15 @@ public class DataLoader {
         .blockLast();
   }
 
-  public static void insertData() {
-    final List<String> data = SourceReader.readFromFile();
+  public static void insertData(List<String> data, Mono<Connection> connectionInstance) {
 
-    connectionMono
+      connectionInstance
         .flatMapMany(
             connection -> {
-              Flux<String> dataFlux =
-                  Flux.fromIterable(data);
+              Flux<String> dataFlux = Flux.fromIterable(data);
 
               return dataFlux
-                  .buffer(400)
+                  .buffer(100)
                   .flatMap(
                       batchData -> {
                         Batch batch = connection.createBatch();
@@ -75,9 +77,9 @@ public class DataLoader {
 
                           String query =
                               String.format(
-                                  "INSERT INTO btc_data SETTINGS async_insert=1, wait_for_async_insert=1," +
-                                          " async_insert_busy_timeout_ms=1, async_insert_max_data_size=1100 " +
-                                          "VALUES ('%s', %s, %s, %s, %s, %s, '%s', %s, %s, %s, %s, %s)",
+                                  "INSERT INTO btc_data SETTINGS async_insert=1, wait_for_async_insert=1,"
+                                      + " async_insert_busy_timeout_ms=3, async_insert_max_data_size=2000000 "
+                                      + "VALUES ('%s', %s, %s, %s, %s, %s, '%s', %s, %s, %s, %s, %s)",
                                   open_time,
                                   values[1],
                                   values[2],
@@ -132,8 +134,16 @@ public class DataLoader {
 
   public static void main(String[] args) {
     connectionMono = ConnectionHandler.initConnection();
+    List<String> data = SourceReader.readFromFile();
 
-    truncateTable();
-    insertData();
+    List<List<String>> partitions = Lists.partition(data, 16);
+    try (ExecutorService executorService = Executors.newFixedThreadPool(16)) {
+      for (List<String> subset : partitions) {
+          Mono<Connection> connectionInstance = ConnectionHandler.initConnection();
+        executorService.submit(
+            () -> insertData(subset, connectionInstance));
+      }
+    }
+    countRecords();
   }
 }
