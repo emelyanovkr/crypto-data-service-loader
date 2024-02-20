@@ -52,15 +52,58 @@ public class DataLoader {
         .blockLast();
   }
 
-  public static void insertData(List<String> data, Mono<Connection> connectionInstance) {
+  public static void simpleInsertData(List<String> data, Mono<Connection> connectionInstance) {
 
-      connectionInstance
+    connectionInstance
+        .flatMapMany(
+            connection ->
+                Flux.fromIterable(data)
+                    .flatMap(
+                        line -> {
+                          String[] values = line.split(",");
+                          LocalDateTime open_time =
+                              LocalDateTime.ofInstant(
+                                  Instant.ofEpochMilli(Long.parseLong(values[0])), ZoneOffset.UTC);
+                          LocalDateTime close_time =
+                              LocalDateTime.ofInstant(
+                                  Instant.ofEpochMilli(Long.parseLong(values[6])), ZoneOffset.UTC);
+                          return connection
+                              .createStatement(
+                                  "INSERT INTO btc_data SETTINGS async_insert=1, wait_for_async_insert=1 " +
+                                          "VALUES (:open_time, :open_price, :high_price, :low_price, "
+                                      + ":close_price, :volume, :close_time, :quote_volume, :count, "
+                                      + ":taker_buy_volume, :taker_buy_quote_volume, :ignore_column)")
+                              .bind("open_time", open_time)
+                              .bind("open_price", values[1])
+                              .bind("high_price", values[2])
+                              .bind("low_price", values[3])
+                              .bind("close_price", values[4])
+                              .bind("volume", values[5])
+                              .bind("close_time", close_time)
+                              .bind("quote_volume", values[7])
+                              .bind("count", values[8])
+                              .bind("taker_buy_volume", values[9])
+                              .bind("taker_buy_quote_volume", values[10])
+                              .bind("ignore_column", values[11])
+                              .execute();
+                        }))
+        .onErrorResume(
+            throwable -> {
+              throwable.printStackTrace();
+              return Mono.empty();
+            })
+        .blockLast();
+  }
+
+  public static void batchInsertData(List<String> data, Mono<Connection> connectionInstance) {
+
+    connectionInstance
         .flatMapMany(
             connection -> {
               Flux<String> dataFlux = Flux.fromIterable(data);
 
               return dataFlux
-                  .buffer(100)
+                  .buffer(150)
                   .flatMap(
                       batchData -> {
                         Batch batch = connection.createBatch();
@@ -78,7 +121,7 @@ public class DataLoader {
                           String query =
                               String.format(
                                   "INSERT INTO btc_data SETTINGS async_insert=1, wait_for_async_insert=1,"
-                                      + " async_insert_busy_timeout_ms=3, async_insert_max_data_size=2000000 "
+                                      + " async_insert_busy_timeout_ms=5, async_insert_max_data_size=2000000 "
                                       + "VALUES ('%s', %s, %s, %s, %s, %s, '%s', %s, %s, %s, %s, %s)",
                                   open_time,
                                   values[1],
@@ -137,13 +180,12 @@ public class DataLoader {
     List<String> data = SourceReader.readFromFile();
 
     List<List<String>> partitions = Lists.partition(data, 16);
-    try (ExecutorService executorService = Executors.newFixedThreadPool(16)) {
+    try (ExecutorService executorService = Executors.newFixedThreadPool(8)) {
       for (List<String> subset : partitions) {
-          Mono<Connection> connectionInstance = ConnectionHandler.initConnection();
-        executorService.submit(
-            () -> insertData(subset, connectionInstance));
+        Mono<Connection> connectionInstance = ConnectionHandler.initConnection();
+        executorService.submit(() -> batchInsertData(subset, connectionInstance));
+        countRecords();
       }
     }
-    countRecords();
   }
 }
