@@ -1,5 +1,6 @@
 package com.crypto.service;
 
+import com.clickhouse.jdbc.ClickHouseConnection;
 import com.crypto.service.utils.ConnectionHandler;
 import com.crypto.service.utils.SourceReader;
 import com.google.common.collect.Lists;
@@ -7,12 +8,13 @@ import io.r2dbc.spi.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.*;
 
 public class DataLoader {
@@ -69,8 +71,8 @@ public class DataLoader {
                                   Instant.ofEpochMilli(Long.parseLong(values[6])), ZoneOffset.UTC);
                           return connection
                               .createStatement(
-                                  "INSERT INTO btc_data SETTINGS async_insert=1, wait_for_async_insert=1 " +
-                                          "VALUES (:open_time, :open_price, :high_price, :low_price, "
+                                  "INSERT INTO btc_data SETTINGS async_insert=1, wait_for_async_insert=1 "
+                                      + "VALUES (:open_time, :open_price, :high_price, :low_price, "
                                       + ":close_price, :volume, :close_time, :quote_volume, :count, "
                                       + ":taker_buy_volume, :taker_buy_quote_volume, :ignore_column)")
                               .bind("open_time", open_time)
@@ -103,7 +105,7 @@ public class DataLoader {
               Flux<String> dataFlux = Flux.fromIterable(data);
 
               return dataFlux
-                  .buffer(150)
+                  .buffer(400)
                   .flatMap(
                       batchData -> {
                         Batch batch = connection.createBatch();
@@ -120,8 +122,8 @@ public class DataLoader {
 
                           String query =
                               String.format(
-                                  "INSERT INTO btc_data SETTINGS async_insert=1, wait_for_async_insert=1,"
-                                      + " async_insert_busy_timeout_ms=5, async_insert_max_data_size=2000000 "
+                                  "INSERT INTO btc_data SETTINGS async_insert=1, wait_for_async_insert=0,"
+                                      + " async_insert_busy_timeout_ms=5, async_insert_max_data_size=3000000 "
                                       + "VALUES ('%s', %s, %s, %s, %s, %s, '%s', %s, %s, %s, %s, %s)",
                                   open_time,
                                   values[1],
@@ -176,16 +178,28 @@ public class DataLoader {
   }
 
   public static void main(String[] args) {
-    connectionMono = ConnectionHandler.initConnection();
-    List<String> data = SourceReader.readFromFile();
+    /*connectionMono = ConnectionHandler.initR2DBCConnection();
+    List<String> data = SourceReader.readSmallData();
 
     List<List<String>> partitions = Lists.partition(data, 16);
-    try (ExecutorService executorService = Executors.newFixedThreadPool(8)) {
+    try (ExecutorService executorService = Executors.newFixedThreadPool(16)) {
       for (List<String> subset : partitions) {
-        Mono<Connection> connectionInstance = ConnectionHandler.initConnection();
-        executorService.submit(() -> batchInsertData(subset, connectionInstance));
+        executorService.submit(() -> batchInsertData(subset, connectionMono));
         countRecords();
       }
+    }*/
+
+    try {
+      try (ClickHouseConnection connection = ConnectionHandler.initJDBCConnection();
+          PreparedStatement statement =
+              connection.prepareStatement("SELECT COUNT(*) FROM btc_data")) {
+        ResultSet resultSet = statement.executeQuery();
+        while (resultSet.next()) {
+          System.out.printf("CURRENT RECORDS IN DATA %d%n", resultSet.getInt(1));
+        }
+      }
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
     }
   }
 }

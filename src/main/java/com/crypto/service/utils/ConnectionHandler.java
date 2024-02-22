@@ -1,18 +1,19 @@
 package com.crypto.service.utils;
 
+import com.clickhouse.jdbc.ClickHouseConnection;
+import com.clickhouse.jdbc.ClickHouseDataSource;
 import io.r2dbc.spi.Connection;
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactoryOptions;
 import reactor.core.publisher.Mono;
 
+import java.sql.SQLException;
 import java.util.Properties;
 
 public class ConnectionHandler {
 
-  public volatile static int connectionCount = 0;
-
-  public static Mono<Connection> initConnection() {
-    Properties properties = PropertiesLoader.loadProperties();
+  public static Mono<Connection> initR2DBCConnection() {
+    Properties properties = PropertiesLoader.loadR2DBCProp();
 
     ConnectionFactoryOptions options =
         ConnectionFactoryOptions.builder()
@@ -27,7 +28,25 @@ public class ConnectionHandler {
                 ConnectionFactoryOptions.SSL, Boolean.parseBoolean(properties.getProperty("SSL")))
             .build();
 
-    ++connectionCount;
     return Mono.from(ConnectionFactories.get(options).create());
+  }
+
+  public static ClickHouseConnection initJDBCConnection() throws SQLException {
+    Properties properties = PropertiesLoader.loadJDBCProp();
+    String url_connection =
+        "jdbc:ch:https://"
+            + properties.getProperty("HOST")
+            + ":"
+            + properties.getProperty("PORT")
+            + "/"
+            + properties.getProperty("DATABASE")
+            + "?ssl="
+            + properties.getProperty("SSL");
+
+    System.out.println(url_connection);
+    ClickHouseDataSource dataSource = new ClickHouseDataSource(url_connection);
+
+    return dataSource.getConnection(
+        properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
   }
 }
