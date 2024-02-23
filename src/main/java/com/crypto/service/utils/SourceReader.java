@@ -16,7 +16,7 @@ public class SourceReader {
   }
 
   public static List<String> readMediumData() {
-    try (Stream<String> stream = Files.lines(Paths.get("src/main/resources/14440.csv"))) {
+    try (Stream<String> stream = Files.lines(Paths.get("src/main/resources/14400.csv"))) {
       return stream.toList();
     } catch (IOException e) {
       throw new RuntimeException(e);
