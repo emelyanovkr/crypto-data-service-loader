@@ -21,6 +21,7 @@ import java.util.concurrent.*;
 
 public class DataLoader {
   private static Mono<Connection> connectionMono;
+  private static PreparedStatement statement;
 
   // TODO: Output data in file or something else
   public static void selectQuery() {
@@ -190,12 +191,8 @@ public class DataLoader {
         .blockLast();
   }
 
-  public static void batchInsertData(List<String> data, ClickHouseConnection connection) {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "INSERT INTO btc_data SELECT * FROM input('col1 DateTime, col2 Float32, col3 Float32, col4 Float32, col5 Float32, col6 Decimal(38,2),"
-                + "col7 DateTime, col8 Float32, col9 Int32, col10 Decimal(38,2), col11 Float32, col12 Int32')")) {
-
+  public static void batchInsertData(List<String> data) {
+    try {
       for (String str : data) {
         String[] values = str.split(",");
 
@@ -221,7 +218,6 @@ public class DataLoader {
 
         statement.addBatch();
       }
-      statement.executeBatch();
 
     } catch (SQLException e) {
       throw new RuntimeException(e);
@@ -285,29 +281,37 @@ public class DataLoader {
       }
     }*/
 
-    List<String> data = SourceReader.readSmallData();
+    List<String> data = SourceReader.readMediumData();
     List<List<String>> partitions = Lists.partition(data, 32);
 
+    // TODO: IMPLEMENT JDBC BATCHING WITH MULTITHREAD
     try (ClickHouseConnection connection = ConnectionHandler.initJDBCConnection();
         ExecutorService executorService = Executors.newFixedThreadPool(32)) {
-      truncateTable(connection);
-      List<Future<?>> futures = new ArrayList<>();
+      statement =
+          connection.prepareStatement(
+              "INSERT INTO btc_data SELECT * FROM input('col1 DateTime, col2 Float32, col3 Float32, "
+                  + "col4 Float32, col5 Float32, col6 Decimal(38,2), "
+                  + "col7 DateTime, col8 Float32, col9 Int32, col10 Decimal(38,2), "
+                  + "col11 Float32, col12 Int32')");
+
+      List<CompletableFuture<?>> futures = new ArrayList<>();
       for (List<String> subset : partitions) {
-        Future<?> future =
-            executorService.submit(
-                () -> {
-                  batchInsertData(subset, connection);
-                  countRecords(connection);
-                });
+        CompletableFuture<Void> future =
+            CompletableFuture.runAsync(() -> batchInsertData(subset), executorService);
         futures.add(future);
       }
-      for (Future<?> future : futures) {
-        try {
-          future.get();
-        } catch (InterruptedException | ExecutionException e) {
-          e.printStackTrace();
-        }
-      }
+
+      CompletableFuture<Void> allOf =
+          CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+
+      allOf.join();
+
+      System.out.println("Futures are done");
+
+      statement.executeBatch();
+
+      statement.close();
+
     } catch (SQLException e) {
       throw new RuntimeException(e);
     }
