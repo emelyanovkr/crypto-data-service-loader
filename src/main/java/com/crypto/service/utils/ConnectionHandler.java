@@ -45,8 +45,11 @@ public class ConnectionHandler {
 
     System.out.println(url_connection);
     ClickHouseDataSource dataSource = new ClickHouseDataSource(url_connection);
+    ClickHouseConnection connection =
+        dataSource.getConnection(
+            properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
+    connection.setAutoCommit(false);
 
-    return dataSource.getConnection(
-        properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
+    return connection;
   }
 }
