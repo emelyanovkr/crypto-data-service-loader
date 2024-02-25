@@ -285,6 +285,9 @@ public class DataLoader {
     List<List<String>> partitions = Lists.partition(data, 32);
 
     // TODO: IMPLEMENT JDBC BATCHING WITH MULTITHREAD
+    // Download more size kucoin reader
+    // Launch kucoin
+    System.out.println("Something");
     try (ClickHouseConnection connection = ConnectionHandler.initJDBCConnection();
         ExecutorService executorService = Executors.newFixedThreadPool(32)) {
       statement =
