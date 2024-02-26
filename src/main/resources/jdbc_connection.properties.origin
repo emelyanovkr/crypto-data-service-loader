@@ -4,3 +4,6 @@ USERNAME =
 PASSWORD =
 DATABASE =
 SSL =
+autoCommit =
+socket_keepalive =
+auto_discovery =

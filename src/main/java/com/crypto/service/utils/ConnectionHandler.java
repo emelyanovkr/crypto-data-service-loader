@@ -43,12 +43,9 @@ public class ConnectionHandler {
             + "?ssl="
             + properties.getProperty("SSL");
 
-    ClickHouseDataSource dataSource = new ClickHouseDataSource(url_connection);
-    ClickHouseConnection connection =
-        dataSource.getConnection(
-            properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
-    connection.setAutoCommit(false);
+    ClickHouseDataSource dataSource = new ClickHouseDataSource(url_connection, properties);
 
-    return connection;
+    return dataSource.getConnection(
+      properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
   }
 }
