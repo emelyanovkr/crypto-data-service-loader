@@ -43,7 +43,6 @@ public class ConnectionHandler {
             + "?ssl="
             + properties.getProperty("SSL");
 
-    System.out.println(url_connection);
     ClickHouseDataSource dataSource = new ClickHouseDataSource(url_connection);
     ClickHouseConnection connection =
         dataSource.getConnection(

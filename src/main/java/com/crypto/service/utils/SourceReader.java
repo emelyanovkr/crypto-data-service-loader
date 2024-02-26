@@ -22,4 +22,12 @@ public class SourceReader {
       throw new RuntimeException(e);
     }
   }
+
+  public static List<String> readBigData() {
+    try (Stream<String> stream = Files.lines(Paths.get("src/main/resources/864400.csv"))) {
+      return stream.toList();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
 }
