@@ -1,7 +1,6 @@
 package com.crypto.service.dao;
 
 import com.clickhouse.jdbc.ClickHouseConnection;
-import com.crypto.service.utils.ConnectionHandler;
 import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
@@ -11,13 +10,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class ClickHouseDAO {
 
