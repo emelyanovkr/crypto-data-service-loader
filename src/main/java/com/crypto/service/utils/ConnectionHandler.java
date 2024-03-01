@@ -1,5 +1,11 @@
 package com.crypto.service.utils;
 
+import com.clickhouse.client.ClickHouseCredentials;
+import com.clickhouse.client.ClickHouseNode;
+import com.clickhouse.client.ClickHouseNodes;
+import com.clickhouse.client.ClickHouseProtocol;
+import com.clickhouse.client.config.ClickHouseClientOption;
+import com.clickhouse.config.ClickHouseOption;
 import com.clickhouse.jdbc.ClickHouseConnection;
 import com.clickhouse.jdbc.ClickHouseDataSource;
 import io.r2dbc.spi.Connection;
@@ -31,21 +37,36 @@ public class ConnectionHandler {
     return Mono.from(ConnectionFactories.get(options).create());
   }
 
+  private static String getURL() {
+    Properties properties = PropertiesLoader.loadJDBCProp();
+    return "jdbc:ch:https://"
+        + properties.getProperty("HOST")
+        + ":"
+        + properties.getProperty("PORT")
+        + "/"
+        + properties.getProperty("DATABASE")
+        + "?ssl="
+        + properties.getProperty("SSL");
+  }
+
   public static ClickHouseConnection initJDBCConnection() throws SQLException {
     Properties properties = PropertiesLoader.loadJDBCProp();
-    String url_connection =
-        "jdbc:ch:https://"
-            + properties.getProperty("HOST")
-            + ":"
-            + properties.getProperty("PORT")
-            + "/"
-            + properties.getProperty("DATABASE")
-            + "?ssl="
-            + properties.getProperty("SSL");
 
-    ClickHouseDataSource dataSource = new ClickHouseDataSource(url_connection, properties);
+    ClickHouseDataSource dataSource = new ClickHouseDataSource(getURL(), properties);
 
     return dataSource.getConnection(
-      properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
+        properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
+  }
+
+  public static ClickHouseNode initJavaClientConnection() {
+    Properties properties = PropertiesLoader.loadJDBCProp();
+
+    return ClickHouseNode.builder()
+      .host(properties.getProperty("HOST"))
+      .port(ClickHouseProtocol.HTTP, Integer.valueOf(properties.getProperty("PORT")))
+      .database(properties.getProperty("DATABASE"))
+      .credentials(ClickHouseCredentials.fromUserAndPassword(properties.getProperty("USERNAME"), properties.getProperty("PASSWORD")))
+      .addOption(ClickHouseClientOption.SSL.getKey(), properties.getProperty("SSL"))
+      .build();
   }
 }
