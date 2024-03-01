@@ -1,5 +1,7 @@
 package com.crypto.service;
 
+import com.clickhouse.client.ClickHouseNode;
+import com.clickhouse.client.ClickHouseNodes;
 import com.clickhouse.jdbc.ClickHouseConnection;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.utils.ConnectionHandler;
@@ -15,9 +17,14 @@ public class LoaderApplication {
     List<String> data = SourceReader.readBigData();
 
     try (ClickHouseConnection connection = ConnectionHandler.initJDBCConnection()) {
+      // For JDBC Connection
       ClickHouseDAO clickHouseDAO = new ClickHouseDAO(connection);
 
-      clickHouseDAO.insertData(data);
+      // For JavaClient Connection
+      ClickHouseNode server = ConnectionHandler.initJavaClientConnection();
+      clickHouseDAO.query(server);
+      // clickHouseDAO.insertData(data);
+      // clickHouseDAO.insertFromFile();
 
     } catch (SQLException e) {
       e.printStackTrace();

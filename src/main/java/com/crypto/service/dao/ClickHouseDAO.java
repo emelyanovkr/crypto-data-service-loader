@@ -1,5 +1,7 @@
 package com.crypto.service.dao;
 
+import com.clickhouse.client.*;
+import com.clickhouse.data.ClickHouseFormat;
 import com.clickhouse.jdbc.ClickHouseConnection;
 import com.google.common.collect.Lists;
 
@@ -20,8 +22,8 @@ public class ClickHouseDAO {
     this.connection = connection;
   }
 
-  // there is a problem with using only one statement for all threads
-  // race condition situation
+  public void insertFromFile() {}
+
   public void insertData(List<String> data) {
     List<List<String>> partitions = Lists.partition(data, 64);
 
@@ -93,6 +95,21 @@ public class ClickHouseDAO {
         System.out.printf("CURRENT RECORDS IN DATA %d%n", resultSet.getInt(1));
       }
     } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public void query(ClickHouseNode server) {
+    try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
+        ClickHouseResponse response =
+            client
+                .read(server)
+                .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
+                .query("SELECT COUNT(*) FROM btc_data")
+                .executeAndWait()) {
+      Long total_count = response.firstRecord().getValue(0).asLong();
+      System.out.printf("CURRENT RECORDS IN DATA %d%n", total_count);
+    } catch (ClickHouseException e) {
       throw new RuntimeException(e);
     }
   }
