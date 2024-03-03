@@ -1,4 +1,4 @@
-package com.crypto.service.utils;
+package com.crypto.service.util;
 
 import java.io.IOException;
 import java.nio.file.Files;
