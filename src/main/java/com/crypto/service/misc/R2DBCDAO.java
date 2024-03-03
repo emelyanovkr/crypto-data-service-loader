@@ -1,7 +1,7 @@
 package com.crypto.service.misc;
 
-import com.crypto.service.utils.ConnectionHandler;
-import com.crypto.service.utils.SourceReader;
+import com.crypto.service.util.ConnectionHandler;
+import com.crypto.service.util.SourceReader;
 import com.google.common.collect.Lists;
 import io.r2dbc.spi.Batch;
 import io.r2dbc.spi.Connection;

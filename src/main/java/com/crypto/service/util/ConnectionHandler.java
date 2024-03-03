@@ -1,11 +1,9 @@
-package com.crypto.service.utils;
+package com.crypto.service.util;
 
 import com.clickhouse.client.ClickHouseCredentials;
 import com.clickhouse.client.ClickHouseNode;
-import com.clickhouse.client.ClickHouseNodes;
 import com.clickhouse.client.ClickHouseProtocol;
 import com.clickhouse.client.config.ClickHouseClientOption;
-import com.clickhouse.config.ClickHouseOption;
 import com.clickhouse.jdbc.ClickHouseConnection;
 import com.clickhouse.jdbc.ClickHouseDataSource;
 import io.r2dbc.spi.Connection;

@@ -1,9 +1,10 @@
 package com.crypto.service.dao;
 
 import com.clickhouse.client.*;
+import com.clickhouse.data.ClickHouseCompression;
+import com.clickhouse.data.ClickHouseFile;
 import com.clickhouse.data.ClickHouseFormat;
 import com.clickhouse.jdbc.ClickHouseConnection;
-import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
@@ -16,17 +17,39 @@ import java.util.List;
 
 public class ClickHouseDAO {
 
-  private final ClickHouseConnection connection;
+  private ClickHouseConnection connection;
+  private ClickHouseNode server;
 
-  public ClickHouseDAO(ClickHouseConnection connection) throws SQLException {
+  public ClickHouseDAO(ClickHouseConnection connection) {
     this.connection = connection;
   }
 
-  public void insertFromFile() {}
+  public ClickHouseDAO(ClickHouseNode server) {
+    this.server = server;
+  }
+
+  public void insertFromFile() {
+    try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol())) {
+      ClickHouseFile file =
+          ClickHouseFile.of(
+              "src/main/resources/864400.csv", ClickHouseCompression.NONE, ClickHouseFormat.CSV);
+      ClickHouseResponse response =
+          client
+              .write(server)
+              .table("btc_data")
+              .data(file)
+              .executeAndWait();
+      ClickHouseResponseSummary summary = response.getSummary();
+      System.out.println(summary.getWrittenRows());
+
+      response.close();
+
+    } catch (ClickHouseException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   public void insertData(List<String> data) {
-    List<List<String>> partitions = Lists.partition(data, 64);
-
     try (PreparedStatement statement =
         connection.prepareStatement(
             "INSERT INTO btc_data SELECT * FROM input('col1 DateTime, col2 Float32, col3 Float32, "
@@ -34,10 +57,7 @@ public class ClickHouseDAO {
                 + "col7 DateTime, col8 Float32, col9 Int32, col10 Decimal(38,2), "
                 + "col11 Float32, col12 Int32')")) {
 
-      // No difference in using multithread insert or onethread
-      for (List<String> subset : partitions) {
-        batchInsertData(subset, statement);
-      }
+      batchInsertData(data, statement);
 
       statement.executeBatch();
 
@@ -80,37 +100,52 @@ public class ClickHouseDAO {
   }
 
   public void truncateTable() {
-    try (PreparedStatement statement = connection.prepareStatement("TRUNCATE btc_data")) {
-      statement.executeQuery();
-    } catch (SQLException e) {
-      throw new RuntimeException(e);
+    // JDBC Connection
+    if (connection != null) {
+      try (PreparedStatement statement = connection.prepareStatement("TRUNCATE TABLE btc_data")) {
+        statement.executeQuery();
+      } catch (SQLException e) {
+        throw new RuntimeException(e);
+      }
+    } else if (server != null) {
+      try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol())) {
+        client
+            .read(server)
+            .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
+            .query("TRUNCATE TABLE btc_data")
+            .executeAndWait();
+      } catch (ClickHouseException e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 
   public void countRecords() {
-    try (PreparedStatement statement =
-        connection.prepareStatement("SELECT COUNT(*) FROM btc_data")) {
-      ResultSet resultSet = statement.executeQuery();
-      while (resultSet.next()) {
-        System.out.printf("CURRENT RECORDS IN DATA %d%n", resultSet.getInt(1));
+    // JDBC Connection
+    if (connection != null) {
+      try (PreparedStatement statement =
+          connection.prepareStatement("SELECT COUNT(*) FROM btc_data")) {
+        ResultSet resultSet = statement.executeQuery();
+        while (resultSet.next()) {
+          System.out.printf("CURRENT RECORDS IN DATA %d%n", resultSet.getInt(1));
+        }
+      } catch (SQLException e) {
+        throw new RuntimeException(e);
       }
-    } catch (SQLException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public void query(ClickHouseNode server) {
-    try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
-        ClickHouseResponse response =
-            client
-                .read(server)
-                .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
-                .query("SELECT COUNT(*) FROM btc_data")
-                .executeAndWait()) {
-      Long total_count = response.firstRecord().getValue(0).asLong();
-      System.out.printf("CURRENT RECORDS IN DATA %d%n", total_count);
-    } catch (ClickHouseException e) {
-      throw new RuntimeException(e);
+      // JavaClient Connection
+    } else if (server != null) {
+      try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
+          ClickHouseResponse response =
+              client
+                  .read(server)
+                  .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
+                  .query("SELECT COUNT(*) FROM btc_data")
+                  .executeAndWait()) {
+        Long total_count = response.firstRecord().getValue(0).asLong();
+        System.out.printf("CURRENT RECORDS IN DATA %d%n", total_count);
+      } catch (ClickHouseException e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 }
