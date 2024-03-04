@@ -17,13 +17,15 @@ public class LoaderApplication {
 
     try (ClickHouseConnection connection = ConnectionHandler.initJDBCConnection()) {
       // For JDBC Connection
-      // ClickHouseDAO clickHouseDAO = new ClickHouseDAO(connection);
-      // clickHouseDAO.insertData(data);
+      ClickHouseDAO clickHouseDAO = new ClickHouseDAO(connection);
+      clickHouseDAO.truncateTable();
+      clickHouseDAO.countRecords();
+      clickHouseDAO.insertData(data);
 
       // For JavaClient Connection
-      ClickHouseNode server = ConnectionHandler.initJavaClientConnection();
-      ClickHouseDAO clickHouseDAO = new ClickHouseDAO(server);
-      clickHouseDAO.insertFromFile();
+      // ClickHouseNode server = ConnectionHandler.initJavaClientConnection();
+      // ClickHouseDAO clickHouseDAO = new ClickHouseDAO(server);
+      // clickHouseDAO.insertFromFile();
 
     } catch (SQLException e) {
       e.printStackTrace();

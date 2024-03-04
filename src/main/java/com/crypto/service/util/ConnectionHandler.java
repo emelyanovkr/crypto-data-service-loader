@@ -35,9 +35,10 @@ public class ConnectionHandler {
     return Mono.from(ConnectionFactories.get(options).create());
   }
 
-  private static String getURL() {
+  public static ClickHouseConnection initJDBCConnection() throws SQLException {
     Properties properties = PropertiesLoader.loadJDBCProp();
-    return "jdbc:ch:https://"
+    String url_connection =
+      "jdbc:ch:https://"
         + properties.getProperty("HOST")
         + ":"
         + properties.getProperty("PORT")
@@ -45,15 +46,11 @@ public class ConnectionHandler {
         + properties.getProperty("DATABASE")
         + "?ssl="
         + properties.getProperty("SSL");
-  }
 
-  public static ClickHouseConnection initJDBCConnection() throws SQLException {
-    Properties properties = PropertiesLoader.loadJDBCProp();
-
-    ClickHouseDataSource dataSource = new ClickHouseDataSource(getURL(), properties);
+    ClickHouseDataSource dataSource = new ClickHouseDataSource(url_connection, properties);
 
     return dataSource.getConnection(
-        properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
+      properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
   }
 
   public static ClickHouseNode initJavaClientConnection() {
