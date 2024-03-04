@@ -57,9 +57,13 @@ public class ClickHouseDAO {
                 + "col7 DateTime, col8 Float32, col9 Int32, col10 Decimal(38,2), "
                 + "col11 Float32, col12 Int32')")) {
 
+      long start = System.currentTimeMillis();
       batchInsertData(data, statement);
+      System.out.println("TIME FOR INSERT BATCH: " + (System.currentTimeMillis() - start));
 
+      start = System.currentTimeMillis();
       statement.executeBatch();
+      System.out.println("TIME FOR EXECUTING BATCH: " + (System.currentTimeMillis() - start));
 
     } catch (SQLException e) {
       throw new RuntimeException(e);
