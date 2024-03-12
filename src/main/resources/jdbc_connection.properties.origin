@@ -7,3 +7,4 @@ SSL =
 autoCommit =
 socket_keepalive =
 auto_discovery =
+DATA_PATH =

@@ -128,7 +128,7 @@ public class ClickHouseDAO {
     // JDBC Connection
     if (connection != null) {
       try (PreparedStatement statement =
-          connection.prepareStatement("SELECT COUNT(*) FROM btc_data")) {
+          connection.prepareStatement("SELECT COUNT(*) FROM tickets_data")) {
         ResultSet resultSet = statement.executeQuery();
         while (resultSet.next()) {
           System.out.printf("CURRENT RECORDS IN DATA %d%n", resultSet.getInt(1));
@@ -143,7 +143,7 @@ public class ClickHouseDAO {
               client
                   .read(server)
                   .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
-                  .query("SELECT COUNT(*) FROM btc_data")
+                  .query("SELECT COUNT(*) FROM tickets_data")
                   .executeAndWait()) {
         Long total_count = response.firstRecord().getValue(0).asLong();
         System.out.printf("CURRENT RECORDS IN DATA %d%n", total_count);
