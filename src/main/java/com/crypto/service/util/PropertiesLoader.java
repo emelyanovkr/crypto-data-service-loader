@@ -21,14 +21,4 @@ public class PropertiesLoader {
     }
     return properties;
   }
-
-  public static Properties loadR2DBCProp() {
-    Properties properties = new Properties();
-    try (InputStream input = new FileInputStream(getResource("r2dbc_connection.properties"))) {
-      properties.load(input);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-    return properties;
-  }
 }
