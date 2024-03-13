@@ -34,11 +34,7 @@ public class ClickHouseDAO {
           ClickHouseFile.of(
               "src/main/resources/864400.csv", ClickHouseCompression.NONE, ClickHouseFormat.CSV);
       ClickHouseResponse response =
-          client
-              .write(server)
-              .table("btc_data")
-              .data(file)
-              .executeAndWait();
+          client.write(server).table("btc_data").data(file).executeAndWait();
       ClickHouseResponseSummary summary = response.getSummary();
       System.out.println(summary.getWrittenRows());
 
@@ -52,19 +48,12 @@ public class ClickHouseDAO {
   public void insertData(List<String> data) {
     try (PreparedStatement statement =
         connection.prepareStatement(
-            "INSERT INTO btc_data SELECT * FROM input('col1 DateTime, col2 Float32, col3 Float32, "
-                + "col4 Float32, col5 Float32, col6 Decimal(38,2), "
-                + "col7 DateTime, col8 Float32, col9 Int32, col10 Decimal(38,2), "
-                + "col11 Float32, col12 Int32')")) {
+            "INSERT INTO tickets_data SELECT * FROM input('col1 String, col2 UInt64, col3 Float64, "
+                + "col4 Float64, col5 Float64, col6 Float64, "
+                + "col7 Float64, col8 Float64, col9 DateTime')")) {
 
-      long start = System.currentTimeMillis();
       batchInsertData(data, statement);
-      System.out.println("TIME FOR INSERT BATCH: " + (System.currentTimeMillis() - start));
-
-      start = System.currentTimeMillis();
       statement.executeBatch();
-      System.out.println("TIME FOR EXECUTING BATCH: " + (System.currentTimeMillis() - start));
-
     } catch (SQLException e) {
       throw new RuntimeException(e);
     }
@@ -75,25 +64,19 @@ public class ClickHouseDAO {
       for (String str : data) {
         String[] values = str.split(",");
 
-        LocalDateTime open_time =
-            LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(Long.parseLong(values[0])), ZoneOffset.UTC);
-        LocalDateTime close_time =
-            LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(Long.parseLong(values[6])), ZoneOffset.UTC);
+        LocalDateTime transaction_time =
+          LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(Long.parseLong(values[8])), ZoneOffset.UTC);
 
-        statement.setObject(1, open_time);
-        statement.setFloat(2, Float.parseFloat(values[1]));
-        statement.setFloat(3, Float.parseFloat(values[2]));
-        statement.setFloat(4, Float.parseFloat(values[3]));
-        statement.setFloat(5, Float.parseFloat(values[4]));
-        statement.setBigDecimal(6, new BigDecimal(values[5]));
-        statement.setObject(7, close_time);
-        statement.setFloat(8, Float.parseFloat(values[7]));
-        statement.setInt(9, Integer.parseInt(values[8]));
-        statement.setBigDecimal(10, new BigDecimal(values[9]));
-        statement.setFloat(11, Float.parseFloat(values[10]));
-        statement.setInt(12, Integer.parseInt(values[11]));
+        statement.setString(1, values[0]);
+        statement.setLong(2, Long.parseLong(values[1]));
+        statement.setDouble(3, Double.parseDouble(values[2]));
+        statement.setDouble(4, Double.parseDouble(values[3]));
+        statement.setDouble(5, Double.parseDouble(values[4]));
+        statement.setDouble(6, Double.parseDouble(values[5]));
+        statement.setDouble(7, Double.parseDouble(values[6]));
+        statement.setDouble(8, Double.parseDouble(values[7]));
+        statement.setObject(9, transaction_time);
 
         statement.addBatch();
       }
@@ -106,7 +89,7 @@ public class ClickHouseDAO {
   public void truncateTable() {
     // JDBC Connection
     if (connection != null) {
-      try (PreparedStatement statement = connection.prepareStatement("TRUNCATE TABLE btc_data")) {
+      try (PreparedStatement statement = connection.prepareStatement("TRUNCATE TABLE tickets_data")) {
         statement.executeQuery();
       } catch (SQLException e) {
         throw new RuntimeException(e);
@@ -116,7 +99,7 @@ public class ClickHouseDAO {
         client
             .read(server)
             .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
-            .query("TRUNCATE TABLE btc_data")
+            .query("TRUNCATE TABLE tickets_data")
             .executeAndWait();
       } catch (ClickHouseException e) {
         throw new RuntimeException(e);
