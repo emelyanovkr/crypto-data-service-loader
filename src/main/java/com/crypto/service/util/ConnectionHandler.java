@@ -4,6 +4,7 @@ import com.clickhouse.client.ClickHouseCredentials;
 import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseProtocol;
 import com.clickhouse.client.config.ClickHouseClientOption;
+import com.clickhouse.client.http.config.ClickHouseHttpOption;
 import com.clickhouse.jdbc.ClickHouseConnection;
 import com.clickhouse.jdbc.ClickHouseDataSource;
 import io.r2dbc.spi.Connection;
@@ -19,30 +20,41 @@ public class ConnectionHandler {
   public static ClickHouseConnection initJDBCConnection() throws SQLException {
     Properties properties = PropertiesLoader.loadJDBCProp();
     String url_connection =
-      "jdbc:ch:https://"
-        + properties.getProperty("HOST")
-        + ":"
-        + properties.getProperty("PORT")
-        + "/"
-        + properties.getProperty("DATABASE")
-        + "?ssl="
-        + properties.getProperty("SSL");
+        "jdbc:ch:https://"
+            + properties.getProperty("HOST")
+            + ":"
+            + properties.getProperty("PORT")
+            + "/"
+            + properties.getProperty("DATABASE")
+            + "?ssl="
+            + properties.getProperty("SSL")
+            + "&custom_http_params=async_insert=1,wait_for_async_insert=1";
 
     ClickHouseDataSource dataSource = new ClickHouseDataSource(url_connection, properties);
+    ClickHouseConnection connection =
+        dataSource.getConnection(
+            properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
 
-    return dataSource.getConnection(
-      properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
+    System.out.println(connection.getUri());
+
+    System.out.println(connection.getConfig().getAllOptions());
+
+    return connection;
   }
 
   public static ClickHouseNode initJavaClientConnection() {
     Properties properties = PropertiesLoader.loadJDBCProp();
 
     return ClickHouseNode.builder()
-      .host(properties.getProperty("HOST"))
-      .port(ClickHouseProtocol.HTTP, Integer.valueOf(properties.getProperty("PORT")))
-      .database(properties.getProperty("DATABASE"))
-      .credentials(ClickHouseCredentials.fromUserAndPassword(properties.getProperty("USERNAME"), properties.getProperty("PASSWORD")))
-      .addOption(ClickHouseClientOption.SSL.getKey(), properties.getProperty("SSL"))
-      .build();
+        .host(properties.getProperty("HOST"))
+        .port(ClickHouseProtocol.HTTP, Integer.valueOf(properties.getProperty("PORT")))
+        .database(properties.getProperty("DATABASE"))
+        .credentials(
+            ClickHouseCredentials.fromUserAndPassword(
+                properties.getProperty("USERNAME"), properties.getProperty("PASSWORD")))
+        .addOption(ClickHouseClientOption.SSL.getKey(), properties.getProperty("SSL"))
+        .addOption(
+            ClickHouseHttpOption.CUSTOM_PARAMS.getKey(), "async_insert=1, wait_for_async_insert=1")
+        .build();
   }
 }

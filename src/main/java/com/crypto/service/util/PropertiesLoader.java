@@ -21,4 +21,14 @@ public class PropertiesLoader {
     }
     return properties;
   }
+
+  public static Properties loadProjectConfig() {
+    Properties properties = new Properties();
+    try (InputStream input = new FileInputStream(getResource("config.properties"))) {
+      properties.load(input);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+    return properties;
+  }
 }

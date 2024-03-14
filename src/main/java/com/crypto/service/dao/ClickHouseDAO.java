@@ -28,19 +28,18 @@ public class ClickHouseDAO {
     this.server = server;
   }
 
-  public void insertFromFile() {
-    try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol())) {
-      ClickHouseFile file =
-          ClickHouseFile.of(
-              "src/main/resources/864400.csv", ClickHouseCompression.NONE, ClickHouseFormat.CSV);
-      ClickHouseResponse response =
-          client.write(server).table("btc_data").data(file).executeAndWait();
-      ClickHouseResponseSummary summary = response.getSummary();
-      System.out.println(summary.getWrittenRows());
+  public void insertClient(List<String> data) {
+    try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
+    ClickHouseResponse response = client.read(server)
+      .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
+      .query("INSERT INTO tickets_data SELECT * FROM input('c1 String, c2 UInt64, c3 Float64, "
+        + "c4 Float64, c5 Float64, c6 Float64, "
+        + "c7 Float64, c8 Float64, c9 DateTime')")
+      .params(1)
+      .executeAndWait()) {
 
-      response.close();
-
-    } catch (ClickHouseException e) {
+    } catch (ClickHouseException e)
+    {
       throw new RuntimeException(e);
     }
   }
@@ -48,7 +47,7 @@ public class ClickHouseDAO {
   public void insertData(List<String> data) {
     try (PreparedStatement statement =
         connection.prepareStatement(
-            "INSERT INTO tickets_data SELECT * FROM input('col1 String, col2 UInt64, col3 Float64, "
+            "INSERT INTO tickets_data_db.tickets_data SELECT * FROM input('col1 String, col2 UInt64, col3 Float64, "
                 + "col4 Float64, col5 Float64, col6 Float64, "
                 + "col7 Float64, col8 Float64, col9 DateTime')")) {
 
@@ -65,8 +64,8 @@ public class ClickHouseDAO {
         String[] values = str.split(",");
 
         LocalDateTime transaction_time =
-          LocalDateTime.ofInstant(
-            Instant.ofEpochMilli(Long.parseLong(values[8])), ZoneOffset.UTC);
+            LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(Long.parseLong(values[8])), ZoneOffset.UTC);
 
         statement.setString(1, values[0]);
         statement.setLong(2, Long.parseLong(values[1]));
@@ -89,7 +88,8 @@ public class ClickHouseDAO {
   public void truncateTable() {
     // JDBC Connection
     if (connection != null) {
-      try (PreparedStatement statement = connection.prepareStatement("TRUNCATE TABLE tickets_data")) {
+      try (PreparedStatement statement =
+          connection.prepareStatement("TRUNCATE TABLE tickets_data_db.tickets_data")) {
         statement.executeQuery();
       } catch (SQLException e) {
         throw new RuntimeException(e);
@@ -111,7 +111,7 @@ public class ClickHouseDAO {
     // JDBC Connection
     if (connection != null) {
       try (PreparedStatement statement =
-          connection.prepareStatement("SELECT COUNT(*) FROM tickets_data")) {
+          connection.prepareStatement("SELECT COUNT(*) FROM tickets_data_db.tickets_data")) {
         ResultSet resultSet = statement.executeQuery();
         while (resultSet.next()) {
           System.out.printf("CURRENT RECORDS IN DATA %d%n", resultSet.getInt(1));
