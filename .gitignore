@@ -18,5 +18,5 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
-/src/main/resources/r2dbc_connection.properties
 /src/main/resources/jdbc_connection.properties
+/src/main/resources/config.properties

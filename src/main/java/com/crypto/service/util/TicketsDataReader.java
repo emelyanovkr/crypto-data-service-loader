@@ -1,5 +1,6 @@
 package com.crypto.service.util;
 
+import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.jdbc.ClickHouseConnection;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.google.common.collect.ImmutableList;
@@ -29,7 +30,7 @@ public class TicketsDataReader {
 
   public TicketsDataReader() {
     String currentDate = getCurrentDate();
-    SOURCE_PATH = PropertiesLoader.loadJDBCProp().getProperty("DATA_PATH") + "/" + currentDate;
+    SOURCE_PATH = PropertiesLoader.loadProjectConfig().getProperty("DATA_PATH") + "/" + currentDate;
   }
 
   private String getCurrentDate() {
@@ -46,15 +47,15 @@ public class TicketsDataReader {
 
   public void readExecutor() {
     List<String> ticketNames = getFilesInDirectory();
-    System.out.println(ticketNames.size());
 
     List<List<String>> ticketParts = Lists.partition(ticketNames, ticketNames.size()/PARTS_QUANTITY);
-    System.out.println(ticketParts.size());
 
     try (ClickHouseConnection connection = ConnectionHandler.initJDBCConnection();
         ExecutorService service = Executors.newFixedThreadPool(THREADS_COUNT)) {
 
-      this.clickHouseDAO = new ClickHouseDAO(connection);
+      clickHouseDAO = new ClickHouseDAO(connection);
+      clickHouseDAO.truncateTable();
+      clickHouseDAO.countRecords();
 
       for (List<String> ticketPartition : ticketParts) {
         service.execute(new FileProcessor(ticketPartition));
