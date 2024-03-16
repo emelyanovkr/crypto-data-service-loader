@@ -35,10 +35,6 @@ public class ConnectionHandler {
         dataSource.getConnection(
             properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
 
-    System.out.println(connection.getUri());
-
-    System.out.println(connection.getConfig().getAllOptions());
-
     return connection;
   }
 
@@ -55,6 +51,7 @@ public class ConnectionHandler {
         .addOption(ClickHouseClientOption.SSL.getKey(), properties.getProperty("SSL"))
         .addOption(
             ClickHouseHttpOption.CUSTOM_PARAMS.getKey(), "async_insert=1, wait_for_async_insert=1")
+        .addOption(ClickHouseClientOption.SOCKET_TIMEOUT.getKey(), "60000")
         .build();
   }
 }

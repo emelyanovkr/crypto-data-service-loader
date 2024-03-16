@@ -45,7 +45,7 @@ public class TicketsDataReader {
     return ImmutableList.copyOf(Objects.requireNonNull(searchDirectory.list()));
   }
 
-  public void readExecutor() {
+  /*public void readExecutor() {
     List<String> ticketNames = getFilesInDirectory();
 
     List<List<String>> ticketParts = Lists.partition(ticketNames, ticketNames.size()/PARTS_QUANTITY);
@@ -63,6 +63,24 @@ public class TicketsDataReader {
 
     } catch (SQLException e) {
       throw new RuntimeException(e);
+    }
+  }*/
+
+  public void readExecutor() {
+    List<String> ticketNames = getFilesInDirectory();
+
+    List<List<String>> ticketParts =
+        Lists.partition(ticketNames, ticketNames.size() / PARTS_QUANTITY);
+
+    try (ExecutorService service = Executors.newFixedThreadPool(THREADS_COUNT)) {
+
+      ClickHouseNode server = ConnectionHandler.initJavaClientConnection();
+
+      clickHouseDAO = new ClickHouseDAO(server);
+
+      for (List<String> ticketPartition : ticketParts) {
+        service.execute(new FileProcessor(ticketPartition));
+      }
     }
   }
 
@@ -83,7 +101,9 @@ public class TicketsDataReader {
     private void collectData(String fileName) {
       try {
         List<String> ticketInfo = Files.readAllLines(Paths.get(SOURCE_PATH + "/" + fileName));
-        clickHouseDAO.insertData(ticketInfo);
+        // clickHouseDAO.insertData(ticketInfo);
+
+        clickHouseDAO.insertClient(ticketInfo);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
