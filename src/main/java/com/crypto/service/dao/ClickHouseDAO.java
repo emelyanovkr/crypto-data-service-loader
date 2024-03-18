@@ -50,62 +50,17 @@ public class ClickHouseDAO {
     }
   }*/
 
-  public void insertClient(List<String> data) {
-    try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol())) {
-      ClickHouseRequest.Mutation request =
-          client
-              .read(server)
-              .write()
-              .table("tickets_data_db.tickets_data")
-              .format(ClickHouseFormat.RowBinary);
-      ClickHouseConfig config = request.getConfig();
-      try (ClickHouseResponse response =
-          request
-              .write()
-              .format(ClickHouseFormat.RowBinary)
-              .query(
-                  "INSERT INTO tickets_data SELECT * FROM input('c1 String, c2 UInt64, c3 Float64, "
-                      + "c4 Float64, c5 Float64, c6 Float64, "
-                      + "c7 Float64, c8 Float64, c9 DateTime')")
-              .data(
-                  output -> {
-                    List<ClickHouseColumn> columns =
-                        ClickHouseColumn.parse(
-                            "ticketName String, sequence UInt64, price Float64, size Float64, bestAsk Float64, bestAskSize Float64, bestBid Float64, bestBidSize Float64, transactionTime DateTime");
-                    ClickHouseValue[] values = ClickHouseValues.newValues(config, columns);
-                    ClickHouseDataProcessor processor =
-                        ClickHouseDataStreamFactory.getInstance()
-                            .getProcessor(config, null, output, null, columns);
-                    ClickHouseSerializer[] serializers = processor.getSerializers(config, columns);
-
-                    for (String str : data) {
-                      String[] line_values = str.split(",");
-
-                      LocalDateTime transaction_time =
-                          LocalDateTime.ofInstant(
-                              Instant.ofEpochMilli(Long.parseLong(line_values[8])), ZoneOffset.UTC);
-
-                      values[0].update(line_values[0]);
-                      values[1].update(Long.parseLong(line_values[1]));
-                      values[2].update(Float.parseFloat(line_values[2]));
-                      values[3].update(Float.parseFloat(line_values[3]));
-                      values[4].update(Float.parseFloat(line_values[4]));
-                      values[5].update(Float.parseFloat(line_values[5]));
-                      values[6].update(Float.parseFloat(line_values[6]));
-                      values[7].update(Float.parseFloat(line_values[7]));
-                      values[8].update(transaction_time);
-
-                      for (int i = 0; i < line_values.length; ++i) {
-                        serializers[i].serialize(values[i], output);
-                      }
-                    }
-                  })
-              .executeAndWait()) {
-        ClickHouseResponseSummary summary = response.getSummary();
-        System.out.println(summary.getWrittenRows());
-      } catch (ClickHouseException e) {
-        throw new RuntimeException(e);
-      }
+  public void insertClient(String pathToFile) {
+    try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
+        ClickHouseResponse response =
+            client
+                .write(server)
+                .query("INSERT INTO tickets_data_db.tickets_data")
+                .format(ClickHouseFormat.CSV)
+                .data(pathToFile)
+                .executeAndWait()) {
+    } catch (ClickHouseException e) {
+      throw new RuntimeException(e);
     }
   }
 

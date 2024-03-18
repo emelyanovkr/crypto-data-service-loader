@@ -51,7 +51,10 @@ public class ConnectionHandler {
         .addOption(ClickHouseClientOption.SSL.getKey(), properties.getProperty("SSL"))
         .addOption(
             ClickHouseHttpOption.CUSTOM_PARAMS.getKey(), "async_insert=1, wait_for_async_insert=1")
-        .addOption(ClickHouseClientOption.SOCKET_TIMEOUT.getKey(), "60000")
+        .addOption(ClickHouseClientOption.SOCKET_TIMEOUT.getKey(), "300000")
+        .addOption(ClickHouseClientOption.MAX_EXECUTION_TIME.getKey(), "300")
+        .addOption(ClickHouseClientOption.COMPRESS.getKey(), "true")
+        .addOption(ClickHouseClientOption.COMPRESS_ALGORITHM.getKey(), "LZ4")
         .build();
   }
 }
