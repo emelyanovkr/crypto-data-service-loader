@@ -10,6 +10,7 @@ import org.checkerframework.checker.units.qual.C;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -77,35 +78,16 @@ public class TicketsDataReader {
       ClickHouseNode server = ConnectionHandler.initJavaClientConnection();
 
       clickHouseDAO = new ClickHouseDAO(server);
+      clickHouseDAO.truncateTable();
 
       for (List<String> ticketPartition : ticketParts) {
-        service.execute(new FileProcessor(ticketPartition));
-      }
-    }
-  }
-
-  class FileProcessor implements Runnable {
-    private final List<String> partition;
-
-    public FileProcessor(List<String> partition) {
-      this.partition = partition;
-    }
-
-    @Override
-    public void run() {
-      for (String fileName : partition) {
-        collectData(fileName);
-      }
-    }
-
-    private void collectData(String fileName) {
-      try {
-        List<String> ticketInfo = Files.readAllLines(Paths.get(SOURCE_PATH + "/" + fileName));
-        // clickHouseDAO.insertData(ticketInfo);
-
-        clickHouseDAO.insertClient(ticketInfo);
-      } catch (IOException e) {
-        throw new RuntimeException(e);
+        service.execute(
+            () -> {
+              for (String fileName : ticketPartition) {
+                Path filePath = Paths.get(SOURCE_PATH + "/" + fileName);
+                clickHouseDAO.insertClient(filePath.toString());
+              }
+            });
       }
     }
   }
