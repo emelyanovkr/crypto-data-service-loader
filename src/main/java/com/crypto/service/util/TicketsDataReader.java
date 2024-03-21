@@ -1,6 +1,11 @@
 package com.crypto.service.util;
 
+import com.clickhouse.client.ClickHouseClient;
+import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseNode;
+import com.clickhouse.client.ClickHouseResponse;
+import com.clickhouse.data.ClickHouseCompression;
+import com.clickhouse.data.ClickHouseFormat;
 import com.clickhouse.jdbc.ClickHouseConnection;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.google.common.collect.ImmutableList;
@@ -21,6 +26,7 @@ import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 public class TicketsDataReader {
   private ClickHouseDAO clickHouseDAO;
@@ -43,7 +49,9 @@ public class TicketsDataReader {
 
   private List<String> getFilesInDirectory() {
     File searchDirectory = new File(SOURCE_PATH);
-    return ImmutableList.copyOf(Objects.requireNonNull(searchDirectory.list()));
+    return ImmutableList.copyOf(Objects.requireNonNull(searchDirectory.list()))
+      .stream().map(fileName -> Paths.get(SOURCE_PATH, fileName).toString())
+      .collect(Collectors.toList());
   }
 
   /*public void readExecutor() {
@@ -73,9 +81,10 @@ public class TicketsDataReader {
     List<List<String>> ticketParts =
         Lists.partition(ticketNames, ticketNames.size() / PARTS_QUANTITY);
 
-    try (ExecutorService service = Executors.newFixedThreadPool(THREADS_COUNT)) {
+    ClickHouseNode server = ConnectionHandler.initJavaClientConnection();
+    ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
 
-      ClickHouseNode server = ConnectionHandler.initJavaClientConnection();
+    try (ExecutorService service = Executors.newFixedThreadPool(THREADS_COUNT)) {
 
       clickHouseDAO = new ClickHouseDAO(server);
       clickHouseDAO.truncateTable();
@@ -84,11 +93,25 @@ public class TicketsDataReader {
         service.execute(
             () -> {
               for (String fileName : ticketPartition) {
-                Path filePath = Paths.get(SOURCE_PATH + "/" + fileName);
-                clickHouseDAO.insertClient(filePath.toString());
+                try (ClickHouseResponse response =
+                    client
+                        .write(server)
+                        .query("INSERT INTO tickets_data_db.tickets_data")
+                        .format(ClickHouseFormat.CSV)
+                        .data(fileName, ClickHouseCompression.LZ4)
+                        .executeAndWait()) {
+                } catch (ClickHouseException e) {
+                  throw new RuntimeException(e);
+                }
               }
             });
       }
+
+      /*for (List<String> ticketPartition : ticketParts) {
+        service.execute(new CompressionHandler(ticketPartition));
+      }*/
+    } finally {
+      client.close();
     }
   }
 }
