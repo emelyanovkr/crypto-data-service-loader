@@ -5,6 +5,7 @@ import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseProtocol;
 import com.clickhouse.client.config.ClickHouseClientOption;
 import com.clickhouse.client.http.config.ClickHouseHttpOption;
+import com.clickhouse.data.ClickHouseCompression;
 import com.clickhouse.jdbc.ClickHouseConnection;
 import com.clickhouse.jdbc.ClickHouseDataSource;
 import io.r2dbc.spi.Connection;
@@ -53,8 +54,6 @@ public class ConnectionHandler {
             ClickHouseHttpOption.CUSTOM_PARAMS.getKey(), "async_insert=1, wait_for_async_insert=1")
         .addOption(ClickHouseClientOption.SOCKET_TIMEOUT.getKey(), "300000")
         .addOption(ClickHouseClientOption.MAX_EXECUTION_TIME.getKey(), "300")
-        .addOption(ClickHouseClientOption.COMPRESS.getKey(), "true")
-        .addOption(ClickHouseClientOption.COMPRESS_ALGORITHM.getKey(), "LZ4")
         .build();
   }
 }
