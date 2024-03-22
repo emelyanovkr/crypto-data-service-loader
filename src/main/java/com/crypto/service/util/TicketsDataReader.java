@@ -49,9 +49,9 @@ public class TicketsDataReader {
 
   private List<String> getFilesInDirectory() {
     File searchDirectory = new File(SOURCE_PATH);
-    return ImmutableList.copyOf(Objects.requireNonNull(searchDirectory.list()))
-      .stream().map(fileName -> Paths.get(SOURCE_PATH, fileName).toString())
-      .collect(Collectors.toList());
+    return ImmutableList.copyOf(Objects.requireNonNull(searchDirectory.list())).stream()
+        .map(fileName -> Paths.get(SOURCE_PATH, fileName).toString())
+        .collect(Collectors.toList());
   }
 
   /*public void readExecutor() {
@@ -64,10 +64,9 @@ public class TicketsDataReader {
 
       clickHouseDAO = new ClickHouseDAO(connection);
       clickHouseDAO.truncateTable();
-      clickHouseDAO.countRecords();
 
       for (List<String> ticketPartition : ticketParts) {
-        service.execute(new FileProcessor(ticketPartition));
+        service.execute(() -> clickHouseDAO.insertFromFile(ticketPartition));
       }
 
     } catch (SQLException e) {
@@ -98,7 +97,7 @@ public class TicketsDataReader {
                         .write(server)
                         .query("INSERT INTO tickets_data_db.tickets_data")
                         .format(ClickHouseFormat.CSV)
-                        .data(fileName, ClickHouseCompression.LZ4)
+                        .data(fileName, ClickHouseCompression.GZIP)
                         .executeAndWait()) {
                 } catch (ClickHouseException e) {
                   throw new RuntimeException(e);
