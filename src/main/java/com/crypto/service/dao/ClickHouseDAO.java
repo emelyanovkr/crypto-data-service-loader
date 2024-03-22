@@ -33,23 +33,6 @@ public class ClickHouseDAO {
     this.server = server;
   }
 
-  /* public void insertClient(List<String> data) {
-    try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
-    ClickHouseResponse response = client.read(server).write()
-      .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
-      .query("INSERT INTO tickets_data SELECT * FROM input('c1 String, c2 UInt64, c3 Float64, "
-        + "c4 Float64, c5 Float64, c6 Float64, "
-        + "c7 Float64, c8 Float64, c9 DateTime')")
-      .params(1)
-      .executeAndWait()) {
-      ClickHouseResponseSummary summary = response.getSummary();
-      System.out.println(summary.getWrittenRows());
-    } catch (ClickHouseException e)
-    {
-      throw new RuntimeException(e);
-    }
-  }*/
-
   public void insertClient(String pathToFile) {
     try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
         ClickHouseResponse response =
@@ -60,6 +43,21 @@ public class ClickHouseDAO {
                 .data(pathToFile)
                 .executeAndWait()) {
     } catch (ClickHouseException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public void insertFromFile(List<String> data) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "INSERT INTO tickets_data_db.tickets_data FROM INFILE ? format CSV")) {
+      for(String str : data)
+      {
+        statement.setString(1, str);
+        statement.addBatch();
+      }
+      statement.executeBatch();
+    } catch (SQLException e) {
       throw new RuntimeException(e);
     }
   }

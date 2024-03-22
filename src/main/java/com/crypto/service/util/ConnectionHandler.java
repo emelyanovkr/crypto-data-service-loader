@@ -31,6 +31,7 @@ public class ConnectionHandler {
             + properties.getProperty("SSL")
             + "&custom_http_params=async_insert=1,wait_for_async_insert=1";
 
+    properties.setProperty("localFile", "true");
     ClickHouseDataSource dataSource = new ClickHouseDataSource(url_connection, properties);
     ClickHouseConnection connection =
         dataSource.getConnection(
