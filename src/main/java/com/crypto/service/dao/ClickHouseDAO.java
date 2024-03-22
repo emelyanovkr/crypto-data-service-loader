@@ -4,8 +4,11 @@ import com.clickhouse.client.*;
 import com.clickhouse.data.*;
 import com.clickhouse.data.format.BinaryStreamUtils;
 import com.clickhouse.jdbc.ClickHouseConnection;
+import com.crypto.service.util.ConnectionHandler;
 
 import java.io.IOException;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -22,135 +25,59 @@ import java.util.concurrent.ExecutionException;
 
 public class ClickHouseDAO {
 
-  private ClickHouseConnection connection;
-  private ClickHouseNode server;
+  private static ClickHouseDAO instance;
+  private final ClickHouseNode server;
+  private final ClickHouseClient client;
 
-  public ClickHouseDAO(ClickHouseConnection connection) {
-    this.connection = connection;
+  private ClickHouseDAO() {
+    this.server = ConnectionHandler.initJavaClientConnection();
+    this.client = ClickHouseClient.newInstance(server.getProtocol());
   }
 
-  public ClickHouseDAO(ClickHouseNode server) {
-    this.server = server;
+  public static synchronized ClickHouseDAO getInstance() {
+    if (instance == null) {
+      instance = new ClickHouseDAO();
+    }
+    return instance;
   }
 
-  public void insertClient(String pathToFile) {
-    try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
-        ClickHouseResponse response =
-            client
-                .write(server)
-                .query("INSERT INTO tickets_data_db.tickets_data")
-                .format(ClickHouseFormat.CSV)
-                .data(pathToFile)
-                .executeAndWait()) {
+  public void insertFromCompressedFileStream(PipedInputStream pin) {
+    try (ClickHouseResponse response =
+        client
+            .write(server)
+            .query("INSERT INTO tickets_data_db.tickets_data")
+            .format(ClickHouseFormat.CSV)
+            .data(pin)
+            .executeAndWait()) {
     } catch (ClickHouseException e) {
       throw new RuntimeException(e);
     }
   }
 
-  public void insertFromFile(List<String> data) {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "INSERT INTO tickets_data_db.tickets_data FROM INFILE ? format CSV")) {
-      for(String str : data)
-      {
-        statement.setString(1, str);
-        statement.addBatch();
-      }
-      statement.executeBatch();
-    } catch (SQLException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public void insertData(List<String> data) {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "INSERT INTO tickets_data_db.tickets_data SELECT * FROM input('col1 String, col2 UInt64, col3 Float64, "
-                + "col4 Float64, col5 Float64, col6 Float64, "
-                + "col7 Float64, col8 Float64, col9 DateTime')")) {
-
-      batchInsertData(data, statement);
-      statement.executeBatch();
-    } catch (SQLException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private void batchInsertData(List<String> data, PreparedStatement statement) {
-    try {
-      for (String str : data) {
-        String[] values = str.split(",");
-
-        LocalDateTime transaction_time =
-            LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(Long.parseLong(values[8])), ZoneOffset.UTC);
-
-        statement.setString(1, values[0]);
-        statement.setLong(2, Long.parseLong(values[1]));
-        statement.setDouble(3, Double.parseDouble(values[2]));
-        statement.setDouble(4, Double.parseDouble(values[3]));
-        statement.setDouble(5, Double.parseDouble(values[4]));
-        statement.setDouble(6, Double.parseDouble(values[5]));
-        statement.setDouble(7, Double.parseDouble(values[6]));
-        statement.setDouble(8, Double.parseDouble(values[7]));
-        statement.setObject(9, transaction_time);
-
-        statement.addBatch();
-      }
-
-    } catch (SQLException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   public void truncateTable() {
-    // JDBC Connection
-    if (connection != null) {
-      try (PreparedStatement statement =
-          connection.prepareStatement("TRUNCATE TABLE tickets_data_db.tickets_data")) {
-        statement.executeQuery();
-      } catch (SQLException e) {
-        throw new RuntimeException(e);
-      }
-    } else if (server != null) {
-      try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol())) {
-        client
+    try (ClickHouseResponse response =
+        ClickHouseClient.newInstance(server.getProtocol())
             .read(server)
             .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
             .query("TRUNCATE TABLE tickets_data")
-            .executeAndWait();
-      } catch (ClickHouseException e) {
-        throw new RuntimeException(e);
-      }
+            .executeAndWait()) {
+
+    } catch (ClickHouseException e) {
+      throw new RuntimeException(e);
     }
   }
 
   public void countRecords() {
-    // JDBC Connection
-    if (connection != null) {
-      try (PreparedStatement statement =
-          connection.prepareStatement("SELECT COUNT(*) FROM tickets_data_db.tickets_data")) {
-        ResultSet resultSet = statement.executeQuery();
-        while (resultSet.next()) {
-          System.out.printf("CURRENT RECORDS IN DATA %d%n", resultSet.getInt(1));
-        }
-      } catch (SQLException e) {
-        throw new RuntimeException(e);
-      }
-      // JavaClient Connection
-    } else if (server != null) {
-      try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
-          ClickHouseResponse response =
-              client
-                  .read(server)
-                  .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
-                  .query("SELECT COUNT(*) FROM tickets_data")
-                  .executeAndWait()) {
-        Long total_count = response.firstRecord().getValue(0).asLong();
-        System.out.printf("CURRENT RECORDS IN DATA %d%n", total_count);
-      } catch (ClickHouseException e) {
-        throw new RuntimeException(e);
-      }
+    try (ClickHouseResponse response =
+        ClickHouseClient.newInstance(server.getProtocol())
+            .read(server)
+            .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
+            .query("SELECT COUNT(*) FROM tickets_data")
+            .executeAndWait()) {
+      Long total_count = response.firstRecord().getValue(0).asLong();
+      System.out.printf("CURRENT RECORDS IN DATA %d%n", total_count);
+    } catch (ClickHouseException e) {
+      throw new RuntimeException(e);
     }
   }
 }

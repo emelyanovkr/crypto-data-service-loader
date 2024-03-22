@@ -14,6 +14,8 @@ import org.checkerframework.checker.units.qual.C;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -23,13 +25,13 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class TicketsDataReader {
-  private ClickHouseDAO clickHouseDAO;
 
   private final int PARTS_QUANTITY = 32;
   private final int THREADS_COUNT = PARTS_QUANTITY;
@@ -54,63 +56,34 @@ public class TicketsDataReader {
         .collect(Collectors.toList());
   }
 
-  /*public void readExecutor() {
-    List<String> ticketNames = getFilesInDirectory();
-
-    List<List<String>> ticketParts = Lists.partition(ticketNames, ticketNames.size()/PARTS_QUANTITY);
-
-    try (ClickHouseConnection connection = ConnectionHandler.initJDBCConnection();
-        ExecutorService service = Executors.newFixedThreadPool(THREADS_COUNT)) {
-
-      clickHouseDAO = new ClickHouseDAO(connection);
-      clickHouseDAO.truncateTable();
-
-      for (List<String> ticketPartition : ticketParts) {
-        service.execute(() -> clickHouseDAO.insertFromFile(ticketPartition));
-      }
-
-    } catch (SQLException e) {
-      throw new RuntimeException(e);
-    }
-  }*/
-
   public void readExecutor() {
     List<String> ticketNames = getFilesInDirectory();
 
     List<List<String>> ticketParts =
         Lists.partition(ticketNames, ticketNames.size() / PARTS_QUANTITY);
 
-    ClickHouseNode server = ConnectionHandler.initJavaClientConnection();
-    ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
-
     try (ExecutorService service = Executors.newFixedThreadPool(THREADS_COUNT)) {
 
-      clickHouseDAO = new ClickHouseDAO(server);
+      ClickHouseDAO clickHouseDAO = ClickHouseDAO.getInstance();
       clickHouseDAO.truncateTable();
 
       for (List<String> ticketPartition : ticketParts) {
+
         service.execute(
             () -> {
-              for (String fileName : ticketPartition) {
-                try (ClickHouseResponse response =
-                    client
-                        .write(server)
-                        .query("INSERT INTO tickets_data_db.tickets_data")
-                        .format(ClickHouseFormat.CSV)
-                        .data(fileName, ClickHouseCompression.GZIP)
-                        .executeAndWait()) {
-                } catch (ClickHouseException e) {
-                  throw new RuntimeException(e);
-                }
+              try {
+                PipedOutputStream pout = new PipedOutputStream();
+                PipedInputStream pin = new PipedInputStream(pout);
+
+                CountDownLatch latch = new CountDownLatch(1);
+                CompressionHandler.compressFilesWithGZIP(ticketPartition, pout, latch);
+                latch.await();
+                clickHouseDAO.insertFromCompressedFileStream(pin);
+              } catch (InterruptedException | IOException e) {
+                throw new RuntimeException(e);
               }
             });
       }
-
-      /*for (List<String> ticketPartition : ticketParts) {
-        service.execute(new CompressionHandler(ticketPartition));
-      }*/
-    } finally {
-      client.close();
     }
   }
 }
