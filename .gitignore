@@ -18,5 +18,4 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
-/src/main/resources/jdbc_connection.properties
 /src/main/resources/config.properties

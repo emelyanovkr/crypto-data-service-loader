@@ -1,1 +1,10 @@
+HOST =
+PORT =
+USERNAME =
+PASSWORD =
+DATABASE =
+SSL =
+custom_http_params =
+socket_timeout =
+socket_keepalive =
 DATA_PATH =

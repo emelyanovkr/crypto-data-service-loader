@@ -18,8 +18,29 @@ import java.util.Properties;
 
 public class ConnectionHandler {
 
+  public static ClickHouseNode initJavaClientConnection() {
+    Properties properties = PropertiesLoader.loadProjectConfig();
+
+    return ClickHouseNode.builder()
+        .host(properties.getProperty("HOST"))
+        .port(ClickHouseProtocol.HTTP, Integer.valueOf(properties.getProperty("PORT")))
+        .database(properties.getProperty("DATABASE"))
+        .credentials(
+            ClickHouseCredentials.fromUserAndPassword(
+                properties.getProperty("USERNAME"), properties.getProperty("PASSWORD")))
+        .addOption(ClickHouseClientOption.SSL.getKey(), properties.getProperty("SSL"))
+        .addOption(
+            ClickHouseHttpOption.CUSTOM_PARAMS.getKey(),
+            properties.getProperty(ClickHouseHttpOption.CUSTOM_PARAMS.getKey()))
+        .addOption(
+            ClickHouseClientOption.SOCKET_TIMEOUT.getKey(),
+            properties.getProperty(ClickHouseClientOption.SOCKET_TIMEOUT.getKey()))
+        .build();
+  }
+
+  @Deprecated
   public static ClickHouseConnection initJDBCConnection() throws SQLException {
-    Properties properties = PropertiesLoader.loadJDBCProp();
+    Properties properties = PropertiesLoader.loadProjectConfig();
     String url_connection =
         "jdbc:ch:https://"
             + properties.getProperty("HOST")
@@ -38,23 +59,5 @@ public class ConnectionHandler {
             properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
 
     return connection;
-  }
-
-  public static ClickHouseNode initJavaClientConnection() {
-    Properties properties = PropertiesLoader.loadJDBCProp();
-
-    return ClickHouseNode.builder()
-        .host(properties.getProperty("HOST"))
-        .port(ClickHouseProtocol.HTTP, Integer.valueOf(properties.getProperty("PORT")))
-        .database(properties.getProperty("DATABASE"))
-        .credentials(
-            ClickHouseCredentials.fromUserAndPassword(
-                properties.getProperty("USERNAME"), properties.getProperty("PASSWORD")))
-        .addOption(ClickHouseClientOption.SSL.getKey(), properties.getProperty("SSL"))
-        .addOption(
-            ClickHouseHttpOption.CUSTOM_PARAMS.getKey(), "async_insert=1, wait_for_async_insert=1")
-        .addOption(ClickHouseClientOption.SOCKET_TIMEOUT.getKey(), "300000")
-        .addOption(ClickHouseClientOption.MAX_EXECUTION_TIME.getKey(), "300")
-        .build();
   }
 }

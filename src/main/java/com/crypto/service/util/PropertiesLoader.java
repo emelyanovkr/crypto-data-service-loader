@@ -12,16 +12,6 @@ public class PropertiesLoader {
     return Resources.getResource(resourceName).getPath();
   }
 
-  public static Properties loadJDBCProp() {
-    Properties properties = new Properties();
-    try (InputStream input = new FileInputStream(getResource("jdbc_connection.properties"))) {
-      properties.load(input);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-    return properties;
-  }
-
   public static Properties loadProjectConfig() {
     Properties properties = new Properties();
     try (InputStream input = new FileInputStream(getResource("config.properties"))) {
