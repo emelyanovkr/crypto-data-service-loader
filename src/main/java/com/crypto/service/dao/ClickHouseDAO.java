@@ -46,8 +46,8 @@ public class ClickHouseDAO {
         client
             .write(server)
             .query("INSERT INTO tickets_data_db.tickets_data")
-            .format(ClickHouseFormat.CSV)
-            .data(pin)
+          .format(ClickHouseFormat.CSV)
+            .data(ClickHouseInputStream.wrap())
             .executeAndWait()) {
     } catch (ClickHouseException e) {
       throw new RuntimeException(e);

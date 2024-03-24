@@ -5,7 +5,9 @@ import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseResponse;
 import com.clickhouse.data.ClickHouseCompression;
+import com.clickhouse.data.ClickHouseDataStreamFactory;
 import com.clickhouse.data.ClickHouseFormat;
+import com.clickhouse.data.ClickHousePipedOutputStream;
 import com.clickhouse.jdbc.ClickHouseConnection;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.google.common.collect.ImmutableList;
@@ -68,22 +70,17 @@ public class TicketsDataReader {
       clickHouseDAO.truncateTable();
 
       for (List<String> ticketPartition : ticketParts) {
+        PipedOutputStream pout = new PipedOutputStream();
+        PipedInputStream pin = new PipedInputStream();
+        pin.connect(pout);
 
-        service.execute(
-            () -> {
-              try {
-                PipedOutputStream pout = new PipedOutputStream();
-                PipedInputStream pin = new PipedInputStream(pout);
+        CompressionHandler handler = new CompressionHandler(pout);
 
-                CountDownLatch latch = new CountDownLatch(1);
-                CompressionHandler.compressFilesWithGZIP(ticketPartition, pout, latch);
-                latch.await();
-                clickHouseDAO.insertFromCompressedFileStream(pin);
-              } catch (InterruptedException | IOException e) {
-                throw new RuntimeException(e);
-              }
-            });
+        service.execute(() -> handler.compressFilesWithGZIP(ticketPartition));
+        service.execute(() -> clickHouseDAO.insertFromCompressedFileStream(pin));
       }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 }

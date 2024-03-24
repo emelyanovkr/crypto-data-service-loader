@@ -8,9 +8,15 @@ import java.util.concurrent.CountDownLatch;
 import java.util.zip.GZIPOutputStream;
 
 public class CompressionHandler {
-  private static final int BUFFER_SIZE = 131072;
+  private final int BUFFER_SIZE = 131072;
+  private final PipedOutputStream pout;
 
-  public static void compressFilesWithGZIP(List<String> ticketsPath, PipedOutputStream pout, CountDownLatch latch) {
+  public CompressionHandler(PipedOutputStream pout)
+  {
+    this.pout = pout;
+  }
+
+  public void compressFilesWithGZIP(List<String> ticketsPath) {
     long start = System.currentTimeMillis();
     System.out.println("Starting compress...");
     try (GZIPOutputStream gzOut = new GZIPOutputStream(pout)) {
@@ -28,9 +34,7 @@ public class CompressionHandler {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-
-    latch.countDown();
     System.out.println(
-        "Compression finished, returning stream: " + (System.currentTimeMillis() - start));
+        "Compression finished" + (System.currentTimeMillis() - start));
   }
 }
