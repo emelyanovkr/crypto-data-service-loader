@@ -1,6 +1,7 @@
 package com.crypto.service.dao;
 
 import com.clickhouse.client.*;
+import com.clickhouse.client.config.ClickHouseClientOption;
 import com.clickhouse.data.*;
 import com.clickhouse.data.format.BinaryStreamUtils;
 import com.clickhouse.jdbc.ClickHouseConnection;
@@ -46,8 +47,7 @@ public class ClickHouseDAO {
         client
             .write(server)
             .query("INSERT INTO tickets_data_db.tickets_data")
-          .format(ClickHouseFormat.CSV)
-            .data(ClickHouseInputStream.wrap())
+            .data(ClickHousePassThruStream.of(pin ,ClickHouseCompression.GZIP, ClickHouseFormat.CSV))
             .executeAndWait()) {
     } catch (ClickHouseException e) {
       throw new RuntimeException(e);

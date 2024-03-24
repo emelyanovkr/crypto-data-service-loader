@@ -35,6 +35,6 @@ public class CompressionHandler {
       throw new RuntimeException(e);
     }
     System.out.println(
-        "Compression finished" + (System.currentTimeMillis() - start));
+        "Compression finished " + (System.currentTimeMillis() - start));
   }
 }
