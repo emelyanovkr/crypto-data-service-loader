@@ -35,6 +35,7 @@ public class ConnectionHandler {
         .addOption(
             ClickHouseClientOption.SOCKET_TIMEOUT.getKey(),
             properties.getProperty(ClickHouseClientOption.SOCKET_TIMEOUT.getKey()))
+      .addOption(ClickHouseCompression.GZIP)
         .build();
   }
 
