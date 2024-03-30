@@ -1,36 +1,22 @@
 package com.crypto.service.util;
 
-import com.clickhouse.client.ClickHouseClient;
-import com.clickhouse.client.ClickHouseException;
-import com.clickhouse.client.ClickHouseNode;
-import com.clickhouse.client.ClickHouseResponse;
-import com.clickhouse.data.ClickHouseCompression;
-import com.clickhouse.data.ClickHouseDataStreamFactory;
-import com.clickhouse.data.ClickHouseFormat;
-import com.clickhouse.data.ClickHousePipedOutputStream;
-import com.clickhouse.jdbc.ClickHouseConnection;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import org.checkerframework.checker.units.qual.C;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class TicketsDataReader {
@@ -39,9 +25,19 @@ public class TicketsDataReader {
   private final int THREADS_COUNT = PARTS_QUANTITY;
   private final String SOURCE_PATH;
 
+  private final Logger logger = LogManager.getLogger();
+
   public TicketsDataReader() {
     String currentDate = getCurrentDate();
-    SOURCE_PATH = PropertiesLoader.loadProjectConfig().getProperty("DATA_PATH") + "/" + currentDate;
+
+    try
+    {
+      SOURCE_PATH = PropertiesLoader.loadProjectConfig().getProperty("DATA_PATH") + "/" + currentDate;
+    } catch (IllegalArgumentException | IOException e)
+    {
+      logger.error("FAILED TO ACQUIRE PROPERTIES - {}", e.getMessage());
+      throw new RuntimeException(e);
+    }
   }
 
   private String getCurrentDate() {
@@ -53,7 +49,18 @@ public class TicketsDataReader {
 
   private List<String> getFilesInDirectory() {
     File searchDirectory = new File(SOURCE_PATH);
-    return ImmutableList.copyOf(Objects.requireNonNull(searchDirectory.list())).stream()
+    List<String> directories;
+
+    try
+    {
+      directories = List.of(Objects.requireNonNull(searchDirectory.list()));
+    } catch (Exception e)
+    {
+      logger.error("FAILED SEARCH DIRECTORY - {}", e.getMessage());
+      throw new RuntimeException();
+    }
+
+    return ImmutableList.copyOf(directories).stream()
         .map(fileName -> Paths.get(SOURCE_PATH, fileName).toString())
         .collect(Collectors.toList());
   }
@@ -64,10 +71,11 @@ public class TicketsDataReader {
     List<List<String>> ticketParts =
         Lists.partition(ticketNames, ticketNames.size() / PARTS_QUANTITY);
 
-    try (ExecutorService service = Executors.newFixedThreadPool(THREADS_COUNT)) {
+    try (ExecutorService executor = Executors.newFixedThreadPool(THREADS_COUNT)) {
 
       ClickHouseDAO clickHouseDAO = ClickHouseDAO.getInstance();
       clickHouseDAO.truncateTable();
+      clickHouseDAO.countRecords();
 
       for (List<String> ticketPartition : ticketParts) {
         PipedOutputStream pout = new PipedOutputStream();
@@ -76,10 +84,11 @@ public class TicketsDataReader {
 
         CompressionHandler handler = new CompressionHandler(pout);
 
-        service.execute(() -> handler.compressFilesWithGZIP(ticketPartition));
-        service.execute(() -> clickHouseDAO.insertFromCompressedFileStream(pin));
+        executor.execute(() -> handler.compressFilesWithGZIP(ticketPartition));
+        executor.execute(() -> clickHouseDAO.insertFromCompressedFileStream(pin));
       }
     } catch (IOException e) {
+      logger.error("FAILED TO CONNECT PIPED STREAMS - {}", e.getMessage());
       throw new RuntimeException(e);
     }
   }

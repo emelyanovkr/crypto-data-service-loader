@@ -8,16 +8,13 @@ import java.io.InputStream;
 import java.util.Properties;
 
 public class PropertiesLoader {
-  private static String getResource(final String resourceName) throws IOException {
-    return Resources.getResource(resourceName).getPath();
-  }
+  private final static String RESOURCE_NAME = "config.properties";
 
-  public static Properties loadProjectConfig() {
+  public static Properties loadProjectConfig() throws IOException
+  {
     Properties properties = new Properties();
-    try (InputStream input = new FileInputStream(getResource("config.properties"))) {
+    try (InputStream input = new FileInputStream(Resources.getResource(RESOURCE_NAME).getPath())) {
       properties.load(input);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
     }
     return properties;
   }

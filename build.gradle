@@ -10,20 +10,13 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.clickhouse:clickhouse-r2dbc:0.6.0-patch1'
     implementation 'com.clickhouse:clickhouse-http-client:0.6.0-patch1'
     implementation 'com.clickhouse:clickhouse-jdbc:0.6.0-patch1'
 
     implementation 'org.apache.httpcomponents.client5:httpclient5:5.3.1'
-
-    implementation 'io.projectreactor:reactor-core:3.6.3'
-
-    implementation 'io.r2dbc:r2dbc-spi:1.0.0.RELEASE'
-    implementation 'org.reactivestreams:reactive-streams:1.0.4'
+    implementation 'org.apache.logging.log4j:log4j-core:2.23.1'
 
     implementation 'org.lz4:lz4-java:1.8.0'
-    implementation 'org.slf4j:slf4j-api:2.0.12'
-
     implementation 'com.google.guava:guava:33.0.0-jre'
 
     testImplementation platform('org.junit:junit-bom:5.10.1')

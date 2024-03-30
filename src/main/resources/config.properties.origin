@@ -7,4 +7,5 @@ SSL =
 custom_http_params =
 socket_timeout =
 socket_keepalive =
+max_execution_time =
 DATA_PATH =

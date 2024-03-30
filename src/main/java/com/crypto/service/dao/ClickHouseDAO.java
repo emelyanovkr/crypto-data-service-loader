@@ -1,28 +1,14 @@
 package com.crypto.service.dao;
 
 import com.clickhouse.client.*;
-import com.clickhouse.client.config.ClickHouseClientOption;
 import com.clickhouse.data.*;
-import com.clickhouse.data.format.BinaryStreamUtils;
-import com.clickhouse.jdbc.ClickHouseConnection;
 import com.crypto.service.util.ConnectionHandler;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.pattern.AnsiEscape;
 
 import java.io.IOException;
 import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.math.BigDecimal;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.Arrays;
-import java.util.List;
-import java.util.TimeZone;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 public class ClickHouseDAO {
 
@@ -30,8 +16,15 @@ public class ClickHouseDAO {
   private final ClickHouseNode server;
   private final ClickHouseClient client;
 
+  private final Logger logger = LogManager.getLogger();
+
   private ClickHouseDAO() {
-    this.server = ConnectionHandler.initJavaClientConnection();
+    try {
+      this.server = ConnectionHandler.initJavaClientConnection();
+    } catch (IOException e) {
+      logger.error("FAILED TO ESTABLISH CONNECTION - {}", e.getMessage());
+      throw new RuntimeException(e);
+    }
     this.client = ClickHouseClient.newInstance(server.getProtocol());
   }
 
@@ -47,11 +40,22 @@ public class ClickHouseDAO {
         client
             .write(server)
             .query("INSERT INTO tickets_data_db.tickets_data")
-            .data(ClickHousePassThruStream.of(pin ,ClickHouseCompression.GZIP, ClickHouseFormat.CSV))
+            .data(
+                ClickHousePassThruStream.of(pin, ClickHouseCompression.GZIP, ClickHouseFormat.CSV))
             .executeAndWait()) {
     } catch (ClickHouseException e) {
+      logger.error("CLICKHOUSE EXCEPTION - {}", e.getMessage());
+      try {
+        logger.info("Closing PipedInputStream for worker - {}", Thread.currentThread().getName());
+        pin.close();
+      } catch (IOException ex) {
+        logger.error("FAILED TO CLOSE PipedInputStream - {}", ex.getMessage());
+      }
       throw new RuntimeException(e);
-    }
+    } /* Possible to measure query execution time
+      finally {
+        logger.info("Query execution time - {} sec.", (System.currentTimeMillis() - start) / 1000);
+      }*/
   }
 
   public void truncateTable() {
@@ -61,8 +65,8 @@ public class ClickHouseDAO {
             .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
             .query("TRUNCATE TABLE tickets_data")
             .executeAndWait()) {
-
     } catch (ClickHouseException e) {
+      logger.error("FAILED TO TRUNCATE TABLE - {}", e.getMessage());
       throw new RuntimeException(e);
     }
   }
@@ -75,8 +79,9 @@ public class ClickHouseDAO {
             .query("SELECT COUNT(*) FROM tickets_data")
             .executeAndWait()) {
       Long total_count = response.firstRecord().getValue(0).asLong();
-      System.out.printf("CURRENT RECORDS IN DATA %d%n", total_count);
+      logger.info("Current records in data - {}", total_count);
     } catch (ClickHouseException e) {
+      logger.error("FAILED TO COUNT DATA - {}", e.getMessage());
       throw new RuntimeException(e);
     }
   }

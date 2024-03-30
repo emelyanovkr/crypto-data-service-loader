@@ -5,20 +5,17 @@ import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseProtocol;
 import com.clickhouse.client.config.ClickHouseClientOption;
 import com.clickhouse.client.http.config.ClickHouseHttpOption;
-import com.clickhouse.data.ClickHouseCompression;
 import com.clickhouse.jdbc.ClickHouseConnection;
 import com.clickhouse.jdbc.ClickHouseDataSource;
-import io.r2dbc.spi.Connection;
-import io.r2dbc.spi.ConnectionFactories;
-import io.r2dbc.spi.ConnectionFactoryOptions;
-import reactor.core.publisher.Mono;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Properties;
 
 public class ConnectionHandler {
 
-  public static ClickHouseNode initJavaClientConnection() {
+  public static ClickHouseNode initJavaClientConnection() throws IOException
+  {
     Properties properties = PropertiesLoader.loadProjectConfig();
 
     return ClickHouseNode.builder()
@@ -35,11 +32,15 @@ public class ConnectionHandler {
         .addOption(
             ClickHouseClientOption.SOCKET_TIMEOUT.getKey(),
             properties.getProperty(ClickHouseClientOption.SOCKET_TIMEOUT.getKey()))
+        .addOption(
+            ClickHouseClientOption.MAX_EXECUTION_TIME.getKey(),
+            properties.getProperty(ClickHouseClientOption.MAX_EXECUTION_TIME.getKey()))
         .build();
   }
 
   @Deprecated
-  public static ClickHouseConnection initJDBCConnection() throws SQLException {
+  public static ClickHouseConnection initJDBCConnection() throws SQLException, IOException
+  {
     Properties properties = PropertiesLoader.loadProjectConfig();
     String url_connection =
         "jdbc:ch:https://"
