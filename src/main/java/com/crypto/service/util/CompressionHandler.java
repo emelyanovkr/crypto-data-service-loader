@@ -1,7 +1,7 @@
 package com.crypto.service.util;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.List;
@@ -10,7 +10,7 @@ import java.util.zip.GZIPOutputStream;
 public class CompressionHandler {
   private final int BUFFER_SIZE = 131072;
   private final PipedOutputStream pout;
-  private final Logger logger = LogManager.getFormatterLogger();
+  private final Logger LOGGER = LoggerFactory.getLogger(CompressionHandler.class);
 
   public CompressionHandler(PipedOutputStream pout)
   {
@@ -31,12 +31,12 @@ public class CompressionHandler {
             totalSize += n;
           }
         } catch (IOException e) {
-          logger.error(e.getMessage());
+          LOGGER.error(e.getMessage());
           throw new RuntimeException(e);
         }
       }
     } catch (IOException e) {
-      logger.error(e.getMessage());
+      LOGGER.error(e.getMessage());
       throw new RuntimeException(e);
     }
     // TODO: Possible to implement TOTAL DATA INSERT, TOTAL RATE, TOTAL TIME
@@ -44,6 +44,7 @@ public class CompressionHandler {
     double totalTime = (double) (System.currentTimeMillis() - start) / 1000;
     totalSize /= (1024 * 1024);
     double compressionRate = totalSize / totalTime;
-    logger.info("Compression of %.2f MB of data with rate %.2f MB/sec finished in %.2f sec.", totalSize, compressionRate, totalTime );
+    LOGGER.info(String.format("Compression of %.2f MB of data with rate %.2f MB/sec finished in %.2f sec.",
+      totalSize, compressionRate, totalTime));
   }
 }

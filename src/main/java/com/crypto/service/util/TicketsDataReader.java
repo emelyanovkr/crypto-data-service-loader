@@ -3,8 +3,9 @@ package com.crypto.service.util;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 import java.io.File;
 import java.io.IOException;
@@ -24,8 +25,7 @@ public class TicketsDataReader {
   private final int PARTS_QUANTITY = 32;
   private final int THREADS_COUNT = PARTS_QUANTITY;
   private final String SOURCE_PATH;
-
-  private final Logger logger = LogManager.getLogger();
+  private final Logger LOGGER = LoggerFactory.getLogger(TicketsDataReader.class);
 
   public TicketsDataReader() {
     String currentDate = getCurrentDate();
@@ -35,7 +35,7 @@ public class TicketsDataReader {
       SOURCE_PATH = PropertiesLoader.loadProjectConfig().getProperty("DATA_PATH") + "/" + currentDate;
     } catch (IllegalArgumentException | IOException e)
     {
-      logger.error("FAILED TO ACQUIRE PROPERTIES - {}", e.getMessage());
+      LOGGER.error("FAILED TO ACQUIRE PROPERTIES - {}", e.getMessage());
       throw new RuntimeException(e);
     }
   }
@@ -56,7 +56,7 @@ public class TicketsDataReader {
       directories = List.of(Objects.requireNonNull(searchDirectory.list()));
     } catch (Exception e)
     {
-      logger.error("FAILED SEARCH DIRECTORY - {}", e.getMessage());
+      LOGGER.error("FAILED SEARCH DIRECTORY - {}", e.getMessage());
       throw new RuntimeException();
     }
 
@@ -75,7 +75,6 @@ public class TicketsDataReader {
 
       ClickHouseDAO clickHouseDAO = ClickHouseDAO.getInstance();
       clickHouseDAO.truncateTable();
-      clickHouseDAO.countRecords();
 
       for (List<String> ticketPartition : ticketParts) {
         PipedOutputStream pout = new PipedOutputStream();
@@ -88,7 +87,7 @@ public class TicketsDataReader {
         executor.execute(() -> clickHouseDAO.insertFromCompressedFileStream(pin));
       }
     } catch (IOException e) {
-      logger.error("FAILED TO CONNECT PIPED STREAMS - {}", e.getMessage());
+      LOGGER.error("FAILED TO CONNECT PIPED STREAMS - {}", e.getMessage());
       throw new RuntimeException(e);
     }
   }
