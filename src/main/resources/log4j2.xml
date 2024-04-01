@@ -1,16 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="INFO">
     <Appenders>
-        <Console name="StdOut" target="SYSTEM_OUT">
+       <!-- <Console name="StdOut" target="SYSTEM_OUT">
             <PatternLayout pattern="%highlight{%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level: %msg%n%throwable}" disableAnsi="false"/>
-        </Console>
+        </Console> -->
+        <ClickHouseAppender name = "ClickHouseAppender" ignoreExceptions = "false" >
+            <PatternLayout pattern="%highlight{%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level: %msg%n%throwable}" disableAnsi="false"/>
+        </ClickHouseAppender>
     </Appenders>
     <Loggers>
         <Logger name="com.crypto.service" level="INFO" additivity="false">
-            <AppenderRef ref="StdOut"/>
+            <AppenderRef ref="ClickHouseAppender"/>
         </Logger>
         <Root level="ERROR">
-            <AppenderRef ref="StdOut"/>
+            <AppenderRef ref="ClickHouseAppender"/>
         </Root>
     </Loggers>
 </Configuration>
