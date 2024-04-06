@@ -1,11 +1,11 @@
 package com.crypto.service.util;
 
 import com.crypto.service.dao.ClickHouseDAO;
+import com.crypto.service.dao.Tables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 import java.io.File;
 import java.io.IOException;
@@ -30,11 +30,10 @@ public class TicketsDataReader {
   public TicketsDataReader() {
     String currentDate = getCurrentDate();
 
-    try
-    {
-      SOURCE_PATH = PropertiesLoader.loadProjectConfig().getProperty("DATA_PATH") + "/" + currentDate;
-    } catch (IllegalArgumentException | IOException e)
-    {
+    try {
+      SOURCE_PATH =
+          PropertiesLoader.loadProjectConfig().getProperty("DATA_PATH") + "/" + currentDate;
+    } catch (IllegalArgumentException | IOException e) {
       LOGGER.error("FAILED TO ACQUIRE PROPERTIES - {}", e.getMessage());
       throw new RuntimeException(e);
     }
@@ -51,12 +50,10 @@ public class TicketsDataReader {
     File searchDirectory = new File(SOURCE_PATH);
     List<String> directories;
 
-    try
-    {
+    try {
       directories = List.of(Objects.requireNonNull(searchDirectory.list()));
-    } catch (Exception e)
-    {
-      LOGGER.error("FAILED SEARCH DIRECTORY - {}", e.getMessage());
+    } catch (Exception e) {
+      LOGGER.error("FAILED SEARCH DIRECTORY", e);
       throw new RuntimeException();
     }
 
@@ -74,7 +71,10 @@ public class TicketsDataReader {
     try (ExecutorService executor = Executors.newFixedThreadPool(THREADS_COUNT)) {
 
       ClickHouseDAO clickHouseDAO = ClickHouseDAO.getInstance();
-      clickHouseDAO.truncateTable();
+
+      // TODO: Remove truncation of both tables
+      clickHouseDAO.truncateTable(Tables.TICKETS_LOGS.getTableName());
+      clickHouseDAO.truncateTable(Tables.TICKETS_DATA.getTableName());
 
       for (List<String> ticketPartition : ticketParts) {
         PipedOutputStream pout = new PipedOutputStream();
@@ -85,6 +85,9 @@ public class TicketsDataReader {
 
         executor.execute(() -> handler.compressFilesWithGZIP(ticketPartition));
         executor.execute(() -> clickHouseDAO.insertFromCompressedFileStream(pin));
+
+        //  TODO: After insertion check that COUNT(tickets_logs).equals(partitions) - insert
+        //   successful (not reliable)
       }
     } catch (IOException e) {
       LOGGER.error("FAILED TO CONNECT PIPED STREAMS - {}", e.getMessage());

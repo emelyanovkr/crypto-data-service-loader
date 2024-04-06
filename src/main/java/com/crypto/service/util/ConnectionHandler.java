@@ -14,8 +14,7 @@ import java.util.Properties;
 
 public class ConnectionHandler {
 
-  public static ClickHouseNode initJavaClientConnection() throws IOException
-  {
+  public static ClickHouseNode initJavaClientConnection() throws IOException {
     Properties properties = PropertiesLoader.loadProjectConfig();
 
     return ClickHouseNode.builder()
@@ -38,9 +37,7 @@ public class ConnectionHandler {
         .build();
   }
 
-  @Deprecated
-  public static ClickHouseConnection initJDBCConnection() throws SQLException, IOException
-  {
+  public static ClickHouseConnection initJDBCConnection() throws SQLException, IOException {
     Properties properties = PropertiesLoader.loadProjectConfig();
     String url_connection =
         "jdbc:ch:https://"
@@ -53,12 +50,8 @@ public class ConnectionHandler {
             + properties.getProperty("SSL")
             + "&custom_http_params=async_insert=1,wait_for_async_insert=1";
 
-    properties.setProperty("localFile", "true");
     ClickHouseDataSource dataSource = new ClickHouseDataSource(url_connection, properties);
-    ClickHouseConnection connection =
-        dataSource.getConnection(
-            properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
-
-    return connection;
+    return dataSource.getConnection(
+        properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
   }
 }

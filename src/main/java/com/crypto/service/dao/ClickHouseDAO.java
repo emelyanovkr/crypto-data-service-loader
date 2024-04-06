@@ -1,13 +1,15 @@
 package com.crypto.service.dao;
 
 import com.clickhouse.client.*;
-import com.clickhouse.data.*;
+import com.clickhouse.data.ClickHouseCompression;
+import com.clickhouse.data.ClickHouseFormat;
+import com.clickhouse.data.ClickHousePassThruStream;
 import com.crypto.service.util.ConnectionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.PipedInputStream;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 
 public class ClickHouseDAO {
 
@@ -16,6 +18,7 @@ public class ClickHouseDAO {
   private final ClickHouseClient client;
 
   private final Logger LOGGER = LoggerFactory.getLogger(ClickHouseDAO.class);
+
   private ClickHouseDAO() {
     try {
       this.server = ConnectionHandler.initJavaClientConnection();
@@ -56,12 +59,23 @@ public class ClickHouseDAO {
       }*/
   }
 
-  public void truncateTable() {
+  public void insertString(String data) {
+    try (ClickHouseResponse response =
+        client
+            .write(server)
+            .query("INSERT INTO tickets_data_db.tickets_logs")
+            .data(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)))
+            .executeAndWait()) {
+    } catch (ClickHouseException e) {
+      throw new RuntimeException("FAILED TO INSERT STRING - " + e.getMessage());
+    }
+  }
+
+  public void truncateTable(String tableName) {
     try (ClickHouseResponse response =
         ClickHouseClient.newInstance(server.getProtocol())
             .read(server)
-            .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
-            .query("TRUNCATE TABLE tickets_data")
+            .query("TRUNCATE TABLE " + tableName)
             .executeAndWait()) {
     } catch (ClickHouseException e) {
       LOGGER.error("FAILED TO TRUNCATE TABLE - {}", e.getMessage());
@@ -69,12 +83,11 @@ public class ClickHouseDAO {
     }
   }
 
-  public void countRecords() {
+  public void countRecords(String tableName) {
     try (ClickHouseResponse response =
         ClickHouseClient.newInstance(server.getProtocol())
             .read(server)
-            .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
-            .query("SELECT COUNT(*) FROM tickets_data")
+            .query("SELECT COUNT(*) FROM " + tableName)
             .executeAndWait()) {
       Long total_count = response.firstRecord().getValue(0).asLong();
       LOGGER.info("Current records in data - {}", total_count);

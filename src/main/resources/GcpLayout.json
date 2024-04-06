@@ -1,0 +1,30 @@
+{
+  "severity": {
+    "$resolver": "pattern",
+    "pattern": "%level",
+    "stackTraceEnabled": false
+  },
+  "thread": {
+    "$resolver": "thread",
+    "field": "name"
+  },
+  "message": {
+    "$resolver": "pattern",
+    "pattern": "%enc{%m}{CRLF}",
+    "stackTraceEnabled": true
+  },
+  "mdc_fields": {
+    "$resolver": "mdc",
+    "stringified": true
+  },
+  "exception": {
+    "class": {
+      "$resolver": "exception",
+      "field": "className"
+    },
+    "message": {
+      "$resolver": "exception",
+      "field": "message"
+    }
+  }
+}
