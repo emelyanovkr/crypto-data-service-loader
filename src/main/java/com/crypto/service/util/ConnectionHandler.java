@@ -37,6 +37,7 @@ public class ConnectionHandler {
         .build();
   }
 
+  @Deprecated
   public static ClickHouseConnection initJDBCConnection() throws SQLException, IOException {
     Properties properties = PropertiesLoader.loadProjectConfig();
     String url_connection =

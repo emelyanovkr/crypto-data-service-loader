@@ -21,6 +21,8 @@ import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 public class ClickHouseAppender extends AbstractAppender {
   private final ClickHouseDAO clickHouseDAO;
 
+  // TODO: make a single buffer for sending data
+
   private ClickHouseAppender(
       String name,
       Filter filter,
@@ -52,12 +54,16 @@ public class ClickHouseAppender extends AbstractAppender {
 
   @Override
   public void append(LogEvent event) {
-    String serializedEvent = (String) getLayout().toSerializable(event);
+    // System delimeter is replaced with empty string to prevent an error related to default
+    // delimeter:
+    // \r\n causes ClickHouse to return an error
+    String serializedEvent = ((String) getLayout().toSerializable(event));
 
-    System.out.print(serializedEvent);
-    clickHouseDAO.insertString(
-        (event.getTimeMillis() + "\t" + serializedEvent)
-            .replaceAll("\\r\\n", "\n")
-            .replaceAll("\"timestamp\" : \"\"", ""));
+    if (serializedEvent.endsWith(System.lineSeparator())) {
+      serializedEvent =
+          serializedEvent.substring(0, serializedEvent.length() - System.lineSeparator().length());
+    }
+
+    clickHouseDAO.insertString(event.getTimeMillis(), serializedEvent);
   }
 }

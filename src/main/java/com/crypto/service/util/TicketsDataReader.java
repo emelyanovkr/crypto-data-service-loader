@@ -34,7 +34,7 @@ public class TicketsDataReader {
       SOURCE_PATH =
           PropertiesLoader.loadProjectConfig().getProperty("DATA_PATH") + "/" + currentDate;
     } catch (IllegalArgumentException | IOException e) {
-      LOGGER.error("FAILED TO ACQUIRE PROPERTIES - {}", e.getMessage());
+      LOGGER.error("FAILED TO ACQUIRE PROPERTIES - ", e);
       throw new RuntimeException(e);
     }
   }
@@ -53,7 +53,7 @@ public class TicketsDataReader {
     try {
       directories = List.of(Objects.requireNonNull(searchDirectory.list()));
     } catch (Exception e) {
-      LOGGER.error("FAILED SEARCH DIRECTORY", e);
+      LOGGER.error("FAILED SEARCH DIRECTORY - ", e);
       throw new RuntimeException();
     }
 
@@ -66,7 +66,7 @@ public class TicketsDataReader {
     List<String> ticketNames = getFilesInDirectory();
 
     List<List<String>> ticketParts =
-        Lists.partition(ticketNames, ticketNames.size() / PARTS_QUANTITY);
+        Lists.partition(ticketNames, ticketNames.size() / THREADS_COUNT);
 
     try (ExecutorService executor = Executors.newFixedThreadPool(THREADS_COUNT)) {
 
@@ -88,9 +88,10 @@ public class TicketsDataReader {
 
         //  TODO: After insertion check that COUNT(tickets_logs).equals(partitions) - insert
         //   successful (not reliable)
+        //   rename layout
       }
     } catch (IOException e) {
-      LOGGER.error("FAILED TO CONNECT PIPED STREAMS - {}", e.getMessage());
+      LOGGER.error("FAILED TO CONNECT PIPED STREAMS - ", e);
       throw new RuntimeException(e);
     }
   }

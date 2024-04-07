@@ -2,10 +2,10 @@
 <Configuration status="INFO">
     <Appenders>
         <Console name="StdOut" target="SYSTEM_OUT">
-            <JsonTemplateLayout eventTemplateUri="classpath:GcpLayout.json"/>
+            <JsonTemplateLayout eventTemplateUri="classpath:LogMsgLayout.json"/>
         </Console>
         <ClickHouseAppender name="ClickHouseAppender" ignoreExceptions="false">
-            <JsonTemplateLayout eventTemplateUri="classpath:GcpLayout.json"/>
+            <JsonTemplateLayout eventTemplateUri="classpath:LogMsgLayout.json" />
         </ClickHouseAppender>
     </Appenders>
     <Loggers>

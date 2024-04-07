@@ -32,12 +32,12 @@ public class CompressionHandler {
             totalSize += n;
           }
         } catch (IOException e) {
-          LOGGER.error(e.getMessage());
+          LOGGER.error("READING COMPRESSION ERROR - ", e);
           throw new RuntimeException(e);
         }
       }
     } catch (IOException e) {
-      LOGGER.error(e.getMessage());
+      LOGGER.error("COMPRESSION ERROR - ", e);
       throw new RuntimeException(e);
     }
     // TODO: Possible to implement TOTAL DATA INSERT, TOTAL RATE, TOTAL

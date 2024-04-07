@@ -23,7 +23,7 @@ public class ClickHouseDAO {
     try {
       this.server = ConnectionHandler.initJavaClientConnection();
     } catch (IOException e) {
-      LOGGER.error("FAILED TO ESTABLISH CONNECTION - {}", e.getMessage());
+      LOGGER.error("FAILED TO ESTABLISH CONNECTION - ", e);
       throw new RuntimeException(e);
     }
     this.client = ClickHouseClient.newInstance(server.getProtocol());
@@ -45,26 +45,29 @@ public class ClickHouseDAO {
                 ClickHousePassThruStream.of(pin, ClickHouseCompression.GZIP, ClickHouseFormat.CSV))
             .executeAndWait()) {
     } catch (ClickHouseException e) {
-      LOGGER.error("CLICKHOUSE EXCEPTION - {}", e.getMessage());
+      LOGGER.error("CLICKHOUSE EXCEPTION - ", e);
       try {
         LOGGER.info("Closing PipedInputStream for worker - {}", Thread.currentThread().getName());
         pin.close();
       } catch (IOException ex) {
-        LOGGER.error("FAILED TO CLOSE PipedInputStream - {}", ex.getMessage());
+        LOGGER.error("FAILED TO CLOSE PipedInputStream - ", ex);
       }
       throw new RuntimeException(e);
-    } /* Possible to measure query execution time
+    }  /* Possible to measure query execution time
       finally {
         LOGGER.info("Query execution time - {} sec.", (System.currentTimeMillis() - start) / 1000);
       }*/
   }
 
-  public void insertString(String data) {
+  public void insertString(Long timestamp, String logMessage) {
+    String tsvData = (timestamp + "\t" + logMessage).replace("\\", "`");
+    System.out.println(tsvData);
+
     try (ClickHouseResponse response =
         client
             .write(server)
             .query("INSERT INTO tickets_data_db.tickets_logs")
-            .data(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)))
+            .data(new ByteArrayInputStream(tsvData.getBytes(StandardCharsets.UTF_8)))
             .executeAndWait()) {
     } catch (ClickHouseException e) {
       throw new RuntimeException("FAILED TO INSERT STRING - " + e.getMessage());
@@ -78,7 +81,7 @@ public class ClickHouseDAO {
             .query("TRUNCATE TABLE " + tableName)
             .executeAndWait()) {
     } catch (ClickHouseException e) {
-      LOGGER.error("FAILED TO TRUNCATE TABLE - {}", e.getMessage());
+      LOGGER.error("FAILED TO TRUNCATE TABLE - ", e);
       throw new RuntimeException(e);
     }
   }
@@ -92,7 +95,7 @@ public class ClickHouseDAO {
       Long total_count = response.firstRecord().getValue(0).asLong();
       LOGGER.info("Current records in data - {}", total_count);
     } catch (ClickHouseException e) {
-      LOGGER.error("FAILED TO COUNT DATA - {}", e.getMessage());
+      LOGGER.error("FAILED TO COUNT DATA - ", e);
       throw new RuntimeException(e);
     }
   }
