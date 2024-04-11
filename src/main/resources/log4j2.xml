@@ -11,9 +11,11 @@
     <Loggers>
         <Logger name="com.crypto.service" level="INFO" additivity="false">
             <AppenderRef ref="ClickHouseAppender"/>
+            <AppenderRef ref="StdOut"/>
         </Logger>
         <Root level="ERROR">
             <AppenderRef ref="ClickHouseAppender"/>
+            <AppenderRef ref="StdOut"/>
         </Root>
     </Loggers>
 </Configuration>

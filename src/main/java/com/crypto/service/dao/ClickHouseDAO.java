@@ -53,16 +53,13 @@ public class ClickHouseDAO {
         LOGGER.error("FAILED TO CLOSE PipedInputStream - ", ex);
       }
       throw new RuntimeException(e);
-    }  /* Possible to measure query execution time
+    } /* Possible to measure query execution time
       finally {
         LOGGER.info("Query execution time - {} sec.", (System.currentTimeMillis() - start) / 1000);
       }*/
   }
 
-  public void insertString(Long timestamp, String logMessage) {
-    String tsvData = (timestamp + "\t" + logMessage).replace("\\", "`");
-    System.out.println(tsvData);
-
+  public void insertLogData(String tsvData) {
     try (ClickHouseResponse response =
         client
             .write(server)

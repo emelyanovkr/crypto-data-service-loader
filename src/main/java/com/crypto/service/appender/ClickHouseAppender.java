@@ -19,9 +19,8 @@ import org.apache.logging.log4j.core.config.plugins.PluginFactory;
     elementType = Appender.ELEMENT_TYPE,
     printObject = true)
 public class ClickHouseAppender extends AbstractAppender {
-  private final ClickHouseDAO clickHouseDAO;
 
-  // TODO: make a single buffer for sending data
+  private final LogBuffer logBuffer;
 
   private ClickHouseAppender(
       String name,
@@ -30,7 +29,7 @@ public class ClickHouseAppender extends AbstractAppender {
       boolean ignoreExceptions,
       Property[] properties) {
     super(name, filter, layout, false, properties);
-    clickHouseDAO = ClickHouseDAO.getInstance();
+    this.logBuffer = LogBuffer.getInstance();
   }
 
   @PluginFactory
@@ -54,16 +53,20 @@ public class ClickHouseAppender extends AbstractAppender {
 
   @Override
   public void append(LogEvent event) {
-    // System delimeter is replaced with empty string to prevent an error related to default
-    // delimeter:
-    // \r\n causes ClickHouse to return an error
-    String serializedEvent = ((String) getLayout().toSerializable(event));
+    String serializedEvent = (String) getLayout().toSerializable(event);
 
+    // System delimiter is replaced with empty string to prevent
+    // an error related to default delimiter:
+    // \r\n causes ClickHouse to return an error
     if (serializedEvent.endsWith(System.lineSeparator())) {
       serializedEvent =
           serializedEvent.substring(0, serializedEvent.length() - System.lineSeparator().length());
     }
 
-    clickHouseDAO.insertString(event.getTimeMillis(), serializedEvent);
+    if (event.getMessage().getFormattedMessage().equals("EXECUTION_COMPLETED")) {
+      logBuffer.flushLogBuffer();
+    } else {
+      logBuffer.storeLogMsg(event.getTimeMillis(), serializedEvent);
+    }
   }
 }

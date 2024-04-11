@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.io.File;
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -76,6 +78,8 @@ public class TicketsDataReader {
       clickHouseDAO.truncateTable(Tables.TICKETS_LOGS.getTableName());
       clickHouseDAO.truncateTable(Tables.TICKETS_DATA.getTableName());
 
+      CountDownLatch workCompletedLatch = new CountDownLatch(ticketParts.size() * 2);
+
       for (List<String> ticketPartition : ticketParts) {
         PipedOutputStream pout = new PipedOutputStream();
         PipedInputStream pin = new PipedInputStream();
@@ -83,15 +87,30 @@ public class TicketsDataReader {
 
         CompressionHandler handler = new CompressionHandler(pout);
 
-        executor.execute(() -> handler.compressFilesWithGZIP(ticketPartition));
-        executor.execute(() -> clickHouseDAO.insertFromCompressedFileStream(pin));
+        executor.execute(
+            () -> {
+              handler.compressFilesWithGZIP(ticketPartition);
+              workCompletedLatch.countDown();
+            });
+
+        executor.execute(
+            () -> {
+              clickHouseDAO.insertFromCompressedFileStream(pin);
+              workCompletedLatch.countDown();
+            });
 
         //  TODO: After insertion check that COUNT(tickets_logs).equals(partitions) - insert
         //   successful (not reliable)
-        //   rename layout
       }
+
+      workCompletedLatch.await();
+      LOGGER.info("EXECUTION_COMPLETED");
+
     } catch (IOException e) {
       LOGGER.error("FAILED TO CONNECT PIPED STREAMS - ", e);
+      throw new RuntimeException(e);
+    } catch (InterruptedException e) {
+      LOGGER.error("THREAD WAS INTERRUPTED - ", e);
       throw new RuntimeException(e);
     }
   }

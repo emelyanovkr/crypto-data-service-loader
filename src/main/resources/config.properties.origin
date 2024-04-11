@@ -9,3 +9,5 @@ socket_timeout =
 socket_keepalive =
 max_execution_time =
 DATA_PATH =
+BUFFER_SIZE =
+BUFFER_TIMEOUT =
