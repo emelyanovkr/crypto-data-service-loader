@@ -9,10 +9,10 @@
         </ClickHouseAppender>
     </Appenders>
     <Loggers>
-        <Logger name="com.crypto.service" level="INFO" additivity="false">
+        <AsyncLogger name="com.crypto.service.appender" level="INFO" additivity="false">
             <AppenderRef ref="ClickHouseAppender"/>
             <AppenderRef ref="StdOut"/>
-        </Logger>
+        </AsyncLogger>
         <Root level="ERROR">
             <AppenderRef ref="ClickHouseAppender"/>
             <AppenderRef ref="StdOut"/>

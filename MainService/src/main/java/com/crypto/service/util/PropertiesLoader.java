@@ -13,7 +13,7 @@ public class PropertiesLoader {
   public static Properties loadProjectConfig() throws IOException
   {
     Properties properties = new Properties();
-    try (InputStream input = new FileInputStream(Resources.getResource(RESOURCE_NAME).getPath())) {
+    try (InputStream input = Resources.getResource(RESOURCE_NAME).openStream()) {
       properties.load(input);
     }
     return properties;

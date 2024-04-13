@@ -1,6 +1,5 @@
 package com.crypto.service.appender;
 
-import com.crypto.service.dao.ClickHouseDAO;
 import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.Core;
 import org.apache.logging.log4j.core.Filter;

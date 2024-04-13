@@ -6,7 +6,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,7 +24,8 @@ import java.util.stream.Collectors;
 public class TicketsDataReader {
 
   private final int PARTS_QUANTITY = 32;
-  private final int THREADS_COUNT = PARTS_QUANTITY;
+  // One more thread is intended for LogBuffer
+  private final int THREADS_COUNT = PARTS_QUANTITY + 1;
   private final String SOURCE_PATH;
   private final Logger LOGGER = LoggerFactory.getLogger(TicketsDataReader.class);
 
@@ -68,7 +68,7 @@ public class TicketsDataReader {
     List<String> ticketNames = getFilesInDirectory();
 
     List<List<String>> ticketParts =
-        Lists.partition(ticketNames, ticketNames.size() / THREADS_COUNT);
+        Lists.partition(ticketNames, ticketNames.size() / (PARTS_QUANTITY - 1));
 
     try (ExecutorService executor = Executors.newFixedThreadPool(THREADS_COUNT)) {
 

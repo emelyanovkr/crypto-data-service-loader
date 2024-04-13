@@ -5,6 +5,7 @@ import com.crypto.service.util.PropertiesLoader;
 
 import java.io.IOException;
 import java.util.Properties;
+import java.util.Timer;
 import java.util.concurrent.ArrayBlockingQueue;
 
 public class LogBuffer {
@@ -18,20 +19,21 @@ public class LogBuffer {
 
   // seconds
   private final int TIMEOUT;
+  private final Timer timer;
 
   private LogBuffer() {
-    try
-    {
+    try {
       Properties bufferConfig = PropertiesLoader.loadProjectConfig();
       BUFFER_SIZE = Integer.parseInt(bufferConfig.getProperty("BUFFER_SIZE"));
       TIMEOUT = Integer.parseInt(bufferConfig.getProperty("BUFFER_TIMEOUT"));
-    } catch (IOException e)
-    {
+    } catch (IOException e) {
       throw new RuntimeException(e);
     }
 
     this.clickHouseDAO = ClickHouseDAO.getInstance();
     this.logBufferQueue = new ArrayBlockingQueue<>(BUFFER_SIZE);
+    this.timer = new Timer();
+    timer.cancel();
   }
 
   public static synchronized LogBuffer getInstance() {
@@ -42,13 +44,10 @@ public class LogBuffer {
   }
 
   private void insertLogMsg(String log) {
-    if (logBufferQueue.remainingCapacity() > 0) {
-      logBufferQueue.offer(log);
-    } else {
-      clickHouseDAO.insertLogData(String.join("\n", logBufferQueue));
-      logBufferQueue.clear();
-      logBufferQueue.offer(log);
+    if (logBufferQueue.remainingCapacity() == 0) {
+      flushLogBuffer();
     }
+    logBufferQueue.offer(log);
   }
 
   public void storeLogMsg(long timestamp, String log) {
