@@ -18,4 +18,4 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
-/src/main/resources/config.properties
+MainService/src/main/resources/config.properties
