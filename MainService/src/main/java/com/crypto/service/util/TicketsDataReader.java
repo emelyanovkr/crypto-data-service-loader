@@ -103,6 +103,7 @@ public class TicketsDataReader {
         //   successful (not reliable)
       }
 
+      // TODO: change this to hook JVM machine shutdown
       workCompletedLatch.await();
       LOGGER.info("EXECUTION_COMPLETED");
 

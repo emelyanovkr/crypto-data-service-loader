@@ -19,3 +19,4 @@ out/
 !**/src/test/**/out/
 
 MainService/src/main/resources/config.properties
+MainService/src/main/resources/log4j2.xml

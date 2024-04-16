@@ -4,12 +4,11 @@ import com.clickhouse.client.*;
 import com.clickhouse.data.ClickHouseCompression;
 import com.clickhouse.data.ClickHouseFormat;
 import com.clickhouse.data.ClickHousePassThruStream;
-import com.crypto.service.util.ConnectionHandler;
+import com.crypto.service.util.ConnectionSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 
 public class ClickHouseDAO {
 
@@ -21,7 +20,7 @@ public class ClickHouseDAO {
 
   private ClickHouseDAO() {
     try {
-      this.server = ConnectionHandler.initJavaClientConnection();
+      this.server = ConnectionSettings.initJavaClientConnection();
     } catch (IOException e) {
       LOGGER.error("FAILED TO ESTABLISH CONNECTION - ", e);
       throw new RuntimeException(e);
@@ -57,18 +56,6 @@ public class ClickHouseDAO {
       finally {
         LOGGER.info("Query execution time - {} sec.", (System.currentTimeMillis() - start) / 1000);
       }*/
-  }
-
-  public void insertLogData(String tsvData) {
-    try (ClickHouseResponse response =
-        client
-            .write(server)
-            .query("INSERT INTO tickets_data_db.tickets_logs")
-            .data(new ByteArrayInputStream(tsvData.getBytes(StandardCharsets.UTF_8)))
-            .executeAndWait()) {
-    } catch (ClickHouseException e) {
-      throw new RuntimeException("FAILED TO INSERT STRING - " + e.getMessage());
-    }
   }
 
   public void truncateTable(String tableName) {

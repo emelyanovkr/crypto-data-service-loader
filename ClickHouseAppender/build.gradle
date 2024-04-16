@@ -10,22 +10,17 @@ repositories {
     mavenCentral()
 }
 
-application {
-    mainClass= 'com.crypto.service.LoaderApplication'
-}
-
 sourceSets {
     main { java { srcDir 'src/main' } }
     test { java { srcDir 'src/test' } }
 }
 
-run {
-    systemProperty 'log4j2.contextSelector', 'org.apache.logging.log4j.core.async.AsyncLoggerContextSelector'
-}
-
 dependencies {
 
-    implementation project(':MainService')
+    implementation 'com.clickhouse:clickhouse-http-client:0.6.0-patch1'
+    implementation 'com.clickhouse:clickhouse-jdbc:0.6.0-patch1'
+
+    implementation 'org.apache.httpcomponents.client5:httpclient5:5.3.1'
 
     implementation 'org.apache.logging.log4j:log4j-api:2.23.1'
     implementation 'org.apache.logging.log4j:log4j-core:2.23.1'

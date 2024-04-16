@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="INFO">
+    <Appenders>
+        <ClickHouseAppender name="ClickHouseAppender" ignoreExceptions="false"
+                            bufferSize=""
+                            timeout=""
+                            tableName="">
+
+            <ConnectionSettings HOST=""
+                                PORT=""
+                                USERNAME=""
+                                PASSWORD=""
+                                DATABASE=""
+                                SSL=""
+                                SOCKET_TIMEOUT=""
+                                MAX_EXECUTION_TIME=""
+            />
+            <JsonTemplateLayout eventTemplateUri="classpath:LogMsgLayout.json"/>
+        </ClickHouseAppender>
+    </Appenders>
+    <Loggers>
+        <Logger name="com.package.name" level="INFO" additivity="false">
+            <AppenderRef ref=""/>
+        </Logger>
+        <Root level="ERROR">
+            <AppenderRef ref=""/>
+        </Root>
+    </Loggers>
+</Configuration>

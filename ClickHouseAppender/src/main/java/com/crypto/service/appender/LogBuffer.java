@@ -1,39 +1,48 @@
 package com.crypto.service.appender;
 
-import com.crypto.service.dao.ClickHouseDAO;
-import com.crypto.service.util.PropertiesLoader;
+import com.crypto.service.dao.ClickHouseLogDAO;
 
 import java.io.IOException;
-import java.util.Properties;
-import java.util.Timer;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class LogBuffer {
 
   private static LogBuffer instance;
-  private final ClickHouseDAO clickHouseDAO;
+  private final ClickHouseLogDAO clickHouseLogDAO;
 
-  private final ArrayBlockingQueue<String> logBufferQueue;
+  private final AtomicReference<Pair<Queue<String>, AtomicInteger>> logBufferQueue;
 
-  private final int BUFFER_SIZE;
+  static class Pair<K, V> {
+    final K first;
+    final V second;
 
-  // seconds
-  private final int TIMEOUT;
-  private final Timer timer;
-
-  private LogBuffer() {
-    try {
-      Properties bufferConfig = PropertiesLoader.loadProjectConfig();
-      BUFFER_SIZE = Integer.parseInt(bufferConfig.getProperty("BUFFER_SIZE"));
-      TIMEOUT = Integer.parseInt(bufferConfig.getProperty("BUFFER_TIMEOUT"));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+    Pair(K first, V second) {
+      this.first = first;
+      this.second = second;
     }
 
-    this.clickHouseDAO = ClickHouseDAO.getInstance();
-    this.logBufferQueue = new ArrayBlockingQueue<>(BUFFER_SIZE);
-    this.timer = new Timer();
-    timer.cancel();
+    public K getFirst() {
+      return first;
+    }
+
+    public V getSecond() {
+      return second;
+    }
+  }
+  private static int BUFFER_SIZE;
+
+  // seconds
+  private static int TIMEOUT;
+  private static String TABLE_NAME;
+
+  private LogBuffer() {
+
+    this.clickHouseLogDAO = new ClickHouseLogDAO(TABLE_NAME);
+    this.logBufferQueue =
+      new AtomicReference<>(new Pair<>(new ConcurrentLinkedQueue<>(), new AtomicInteger(0)));
   }
 
   public static synchronized LogBuffer getInstance() {
@@ -43,23 +52,49 @@ public class LogBuffer {
     return instance;
   }
 
-  private void insertLogMsg(String log) {
-    if (logBufferQueue.remainingCapacity() == 0) {
-      flushLogBuffer();
-    }
-    logBufferQueue.offer(log);
+  // TODO: How to pass parameters?
+  public static synchronized void setParameters(int buffer_size, int timeout, String tableName) {
+    TABLE_NAME = tableName;
+    BUFFER_SIZE = buffer_size;
+    TIMEOUT = timeout;
+
   }
 
-  public void storeLogMsg(long timestamp, String log) {
+  private boolean flushRequired(
+      Pair<Queue<String>, AtomicInteger> logBufferQueue, long lastCallTime) {
+
+    boolean timeoutElapsed = System.currentTimeMillis() - lastCallTime > TIMEOUT;
+    boolean bufferSizeSufficient = logBufferQueue.second.get() >= BUFFER_SIZE;
+
+    return bufferSizeSufficient || timeoutElapsed;
+  }
+
+  private void bufferManagement() {
+    long lastCallTime = System.currentTimeMillis();
+    while (true) {
+
+      if (flushRequired(logBufferQueue.get(), lastCallTime)) {
+        lastCallTime = System.currentTimeMillis();
+        Pair<Queue<String>, AtomicInteger> logBufferQueueCopy = logBufferQueue.get();
+
+        logBufferQueue.compareAndSet(
+            logBufferQueueCopy, new Pair<>(new ConcurrentLinkedQueue<>(), new AtomicInteger(0)));
+
+        clickHouseLogDAO.insertLogData(String.join("\n", logBufferQueueCopy.getFirst()));
+      }
+      try {
+        Thread.sleep(100);
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+    }
+  }
+
+  public void insertLogMsg(long timestamp, String log) {
     String tsvData = (timestamp + "\t" + log).replace("\\", "`");
 
-    insertLogMsg(tsvData);
-  }
-
-  public void flushLogBuffer() {
-    if (!logBufferQueue.isEmpty()) {
-      clickHouseDAO.insertLogData(String.join("\n", logBufferQueue));
-      logBufferQueue.clear();
-    }
+    Pair<Queue<String>, AtomicInteger> pair = logBufferQueue.get();
+    pair.first.add(tsvData);
+    pair.second.addAndGet(tsvData.getBytes().length);
   }
 }
