@@ -6,18 +6,22 @@ import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
-import org.apache.logging.log4j.core.config.Property;
-import org.apache.logging.log4j.core.config.plugins.Plugin;
-import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
-import org.apache.logging.log4j.core.config.plugins.PluginElement;
-import org.apache.logging.log4j.core.config.plugins.PluginFactory;
+import org.apache.logging.log4j.core.config.plugins.*;
 
+import java.io.IOException;
+
+// TODO: Implement timeout size buffer options, look for PluginBuilderAttribute
+//  use shutdown hook
 @Plugin(
     name = "ClickHouseAppender",
     category = Core.CATEGORY_NAME,
     elementType = Appender.ELEMENT_TYPE,
     printObject = true)
 public class ClickHouseAppender extends AbstractAppender {
+
+  private static final int DEFAULT_BUFFER_SIZE = 8192;
+  private static final int DEFAULT_TIMEOUT = 30;
+  private static final String DEFAULT_TABLE_NAME = "tickets_logs";
 
   private final LogBuffer logBuffer;
 
@@ -26,9 +30,19 @@ public class ClickHouseAppender extends AbstractAppender {
       Filter filter,
       Layout<String> layout,
       boolean ignoreExceptions,
-      Property[] properties) {
-    super(name, filter, layout, false, properties);
+      int bufferSize,
+      int bufferFlushTimeout,
+      String tableName,
+      int flushRetryCount) {
+    super(name, filter, layout, false, null);
+
+    LogBuffer.setParameters(bufferSize, bufferFlushTimeout, tableName, flushRetryCount);
     this.logBuffer = LogBuffer.getInstance();
+
+    // TODO: temporary to test logs sending
+    Thread thread = new Thread(logBuffer::bufferManagement);
+    thread.setDaemon(true);
+    thread.start();
   }
 
   @PluginFactory
@@ -36,7 +50,12 @@ public class ClickHouseAppender extends AbstractAppender {
       @PluginAttribute("name") String name,
       @PluginElement("Filters") Filter filter,
       @PluginElement("layout") Layout<String> layout,
-      @PluginAttribute("ignoreExceptions") boolean ignoreExceptions) {
+      @PluginAttribute("ignoreExceptions") boolean ignoreExceptions,
+      @PluginAttribute("bufferSize") int bufferSize,
+      @PluginAttribute("timeout") int timeout,
+      @PluginAttribute("tableName") String tableName,
+      @PluginAttribute("flushRetryCount") int flushRetryCount) {
+
     if (name == null) {
       LOGGER.info("No name provided for ClickHouseAppender, default name is set");
       name = "ClickHouseAppender";
@@ -47,7 +66,28 @@ public class ClickHouseAppender extends AbstractAppender {
       throw new RuntimeException();
     }
 
-    return new ClickHouseAppender(name, filter, layout, ignoreExceptions, null);
+    if (bufferSize == 0) {
+      LOGGER.info("No buffer size provided, default value is set - 8192");
+      bufferSize = DEFAULT_BUFFER_SIZE;
+    }
+
+    if (timeout == 0) {
+      LOGGER.info("No timeout provided, default value is set - 30");
+      timeout = DEFAULT_TIMEOUT;
+    }
+
+    if (tableName == null) {
+      LOGGER.info("No table provided, default table is set - tickets_logs");
+      tableName = DEFAULT_TABLE_NAME;
+    }
+
+    if (flushRetryCount == 0) {
+      LOGGER.info("No flush retry count provided, default value is set - 3");
+      flushRetryCount = 3;
+    }
+
+    return new ClickHouseAppender(
+        name, filter, layout, ignoreExceptions, bufferSize, timeout, tableName, flushRetryCount);
   }
 
   @Override
@@ -62,10 +102,8 @@ public class ClickHouseAppender extends AbstractAppender {
           serializedEvent.substring(0, serializedEvent.length() - System.lineSeparator().length());
     }
 
-    if (event.getMessage().getFormattedMessage().equals("EXECUTION_COMPLETED")) {
-      logBuffer.flushLogBuffer();
-    } else {
-      logBuffer.storeLogMsg(event.getTimeMillis(), serializedEvent);
-    }
+    // TODO: JVM SHUTDOWN HOOK
+
+    logBuffer.insertLogMsg(event.getTimeMillis(), serializedEvent);
   }
 }

@@ -78,8 +78,6 @@ public class TicketsDataReader {
       clickHouseDAO.truncateTable(Tables.TICKETS_LOGS.getTableName());
       clickHouseDAO.truncateTable(Tables.TICKETS_DATA.getTableName());
 
-      CountDownLatch workCompletedLatch = new CountDownLatch(ticketParts.size() * 2);
-
       for (List<String> ticketPartition : ticketParts) {
         PipedOutputStream pout = new PipedOutputStream();
         PipedInputStream pin = new PipedInputStream();
@@ -87,30 +85,18 @@ public class TicketsDataReader {
 
         CompressionHandler handler = new CompressionHandler(pout);
 
-        executor.execute(
-            () -> {
-              handler.compressFilesWithGZIP(ticketPartition);
-              workCompletedLatch.countDown();
-            });
+        executor.execute(() -> handler.compressFilesWithGZIP(ticketPartition));
 
-        executor.execute(
-            () -> {
-              clickHouseDAO.insertFromCompressedFileStream(pin);
-              workCompletedLatch.countDown();
-            });
+        executor.execute(() -> clickHouseDAO.insertFromCompressedFileStream(pin));
 
         //  TODO: After insertion check that COUNT(tickets_logs).equals(partitions) - insert
         //   successful (not reliable)
       }
 
-      workCompletedLatch.await();
-      LOGGER.info("EXECUTION_COMPLETED");
+      // TODO: change this to hook JVM machine shutdown
 
     } catch (IOException e) {
       LOGGER.error("FAILED TO CONNECT PIPED STREAMS - ", e);
-      throw new RuntimeException(e);
-    } catch (InterruptedException e) {
-      LOGGER.error("THREAD WAS INTERRUPTED - ", e);
       throw new RuntimeException(e);
     }
   }

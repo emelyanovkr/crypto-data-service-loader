@@ -11,7 +11,7 @@ repositories {
 }
 
 application {
-    mainClass= 'com.crypto.service.LoaderApplication'
+    mainClass = 'com.crypto.service.LoaderApplication'
 }
 
 sourceSets {
@@ -19,11 +19,8 @@ sourceSets {
     test { java { srcDir 'src/test' } }
 }
 
-run {
-    systemProperty 'log4j2.contextSelector', 'org.apache.logging.log4j.core.async.AsyncLoggerContextSelector'
-}
-
 dependencies {
+    implementation project(':ClickHouseAppender')
 
     implementation 'com.clickhouse:clickhouse-http-client:0.6.0-patch1'
     implementation 'com.clickhouse:clickhouse-jdbc:0.6.0-patch1'
