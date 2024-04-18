@@ -1,7 +1,5 @@
 package com.crypto.service.appender;
 
-import com.clickhouse.client.ClickHouseNode;
-import com.crypto.service.util.ConnectionSettings;
 import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.Core;
 import org.apache.logging.log4j.core.Filter;
@@ -34,11 +32,17 @@ public class ClickHouseAppender extends AbstractAppender {
       boolean ignoreExceptions,
       int bufferSize,
       int bufferFlushTimeout,
-      String tableName) {
+      String tableName,
+      int flushRetryCount) {
     super(name, filter, layout, false, null);
 
-    LogBuffer.setParameters(bufferSize, bufferFlushTimeout, tableName);
+    LogBuffer.setParameters(bufferSize, bufferFlushTimeout, tableName, flushRetryCount);
     this.logBuffer = LogBuffer.getInstance();
+
+    // TODO: temporary to test logs sending
+    Thread thread = new Thread(logBuffer::bufferManagement);
+    thread.setDaemon(true);
+    thread.start();
   }
 
   @PluginFactory
@@ -49,7 +53,8 @@ public class ClickHouseAppender extends AbstractAppender {
       @PluginAttribute("ignoreExceptions") boolean ignoreExceptions,
       @PluginAttribute("bufferSize") int bufferSize,
       @PluginAttribute("timeout") int timeout,
-      @PluginAttribute("tableName") String tableName) {
+      @PluginAttribute("tableName") String tableName,
+      @PluginAttribute("flushRetryCount") int flushRetryCount) {
 
     if (name == null) {
       LOGGER.info("No name provided for ClickHouseAppender, default name is set");
@@ -76,8 +81,13 @@ public class ClickHouseAppender extends AbstractAppender {
       tableName = DEFAULT_TABLE_NAME;
     }
 
+    if (flushRetryCount == 0) {
+      LOGGER.info("No flush retry count provided, default value is set - 3");
+      flushRetryCount = 3;
+    }
+
     return new ClickHouseAppender(
-        name, filter, layout, ignoreExceptions, bufferSize, timeout, tableName);
+        name, filter, layout, ignoreExceptions, bufferSize, timeout, tableName, flushRetryCount);
   }
 
   @Override
@@ -93,10 +103,7 @@ public class ClickHouseAppender extends AbstractAppender {
     }
 
     // TODO: JVM SHUTDOWN HOOK
-    if (event.getMessage().getFormattedMessage().equals("EXECUTION_COMPLETED")) {
-      logBuffer.insertLogMsg(event.getTimeMillis(), serializedEvent);
-    } else {
-      logBuffer.insertLogMsg(event.getTimeMillis(), serializedEvent);
-    }
+
+    logBuffer.insertLogMsg(event.getTimeMillis(), serializedEvent);
   }
 }

@@ -2,7 +2,6 @@ package com.crypto.service.appender;
 
 import com.crypto.service.dao.ClickHouseLogDAO;
 
-import java.io.IOException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -32,17 +31,19 @@ public class LogBuffer {
       return second;
     }
   }
+
   private static int BUFFER_SIZE;
 
   // seconds
   private static int TIMEOUT;
   private static String TABLE_NAME;
+  private static int FLUSH_RETRY_COUNT;
 
   private LogBuffer() {
 
     this.clickHouseLogDAO = new ClickHouseLogDAO(TABLE_NAME);
     this.logBufferQueue =
-      new AtomicReference<>(new Pair<>(new ConcurrentLinkedQueue<>(), new AtomicInteger(0)));
+        new AtomicReference<>(new Pair<>(new ConcurrentLinkedQueue<>(), new AtomicInteger(0)));
   }
 
   public static synchronized LogBuffer getInstance() {
@@ -52,27 +53,29 @@ public class LogBuffer {
     return instance;
   }
 
-  // TODO: How to pass parameters?
-  public static synchronized void setParameters(int buffer_size, int timeout, String tableName) {
+  // TODO: How to pass parameters in singleton?
+  public static synchronized void setParameters(
+      int buffer_size, int timeout, String tableName, int flushRetryCount) {
     TABLE_NAME = tableName;
     BUFFER_SIZE = buffer_size;
     TIMEOUT = timeout;
-
+    FLUSH_RETRY_COUNT = flushRetryCount;
   }
 
   private boolean flushRequired(
       Pair<Queue<String>, AtomicInteger> logBufferQueue, long lastCallTime) {
 
-    boolean timeoutElapsed = System.currentTimeMillis() - lastCallTime > TIMEOUT;
+    // TODO: timeout convert in millis?
+    boolean timeoutElapsed = System.currentTimeMillis() - lastCallTime > TIMEOUT * 1000L;
     boolean bufferSizeSufficient = logBufferQueue.second.get() >= BUFFER_SIZE;
 
     return bufferSizeSufficient || timeoutElapsed;
   }
 
-  private void bufferManagement() {
+  // TODO: where to insert flush_retry?
+  public void bufferManagement() {
     long lastCallTime = System.currentTimeMillis();
     while (true) {
-
       if (flushRequired(logBufferQueue.get(), lastCallTime)) {
         lastCallTime = System.currentTimeMillis();
         Pair<Queue<String>, AtomicInteger> logBufferQueueCopy = logBufferQueue.get();

@@ -5,7 +5,7 @@ import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseProtocol;
 import com.clickhouse.client.config.ClickHouseClientOption;
 import com.clickhouse.client.http.config.ClickHouseHttpOption;
-import org.apache.logging.log4j.core.Core;
+import org.apache.logging.log4j.core.config.Node;
 import org.apache.logging.log4j.core.config.plugins.Plugin;
 import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
@@ -15,7 +15,7 @@ import java.io.IOException;
 
 @Plugin(
     name = "ConnectionSettings",
-    category = Core.CATEGORY_NAME,
+    category = Node.CATEGORY,
     elementType = "connectionSettings",
     printObject = true)
 public class ConnectionSettings

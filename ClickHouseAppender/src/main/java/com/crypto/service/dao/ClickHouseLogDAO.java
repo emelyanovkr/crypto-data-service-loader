@@ -35,7 +35,7 @@ public class ClickHouseLogDAO {
             .data(new ByteArrayInputStream(tsvData.getBytes(StandardCharsets.UTF_8)))
             .executeAndWait()) {
     } catch (ClickHouseException e) {
-      throw new RuntimeException("FAILED TO INSERT STRING - " + e.getMessage());
+      throw new RuntimeException("FAILED TO INSERT LOG DATA - " + e.getMessage());
     }
   }
 }
