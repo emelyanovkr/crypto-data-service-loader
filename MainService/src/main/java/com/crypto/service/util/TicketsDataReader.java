@@ -93,8 +93,6 @@ public class TicketsDataReader {
         //   successful (not reliable)
       }
 
-      // TODO: change this to hook JVM machine shutdown
-
     } catch (IOException e) {
       LOGGER.error("FAILED TO CONNECT PIPED STREAMS - ", e);
       throw new RuntimeException(e);

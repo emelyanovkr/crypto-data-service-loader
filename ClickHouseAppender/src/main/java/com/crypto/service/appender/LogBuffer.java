@@ -44,6 +44,15 @@ public class LogBuffer {
     this.clickHouseLogDAO = new ClickHouseLogDAO(TABLE_NAME);
     this.logBufferQueue =
         new AtomicReference<>(new Pair<>(new ConcurrentLinkedQueue<>(), new AtomicInteger(0)));
+
+    // TODO: what is the best place to do this?
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread("SHUTDOWN-THREAD") {
+              public void run() {
+                clickHouseLogDAO.insertLogData(String.join("\n", logBufferQueue.get().getFirst()));
+              }
+            });
   }
 
   public static synchronized LogBuffer getInstance() {
@@ -65,8 +74,8 @@ public class LogBuffer {
   private boolean flushRequired(
       Pair<Queue<String>, AtomicInteger> logBufferQueue, long lastCallTime) {
 
-    // TODO: timeout convert in millis?
-    boolean timeoutElapsed = System.currentTimeMillis() - lastCallTime > TIMEOUT * 1000L;
+    // TODO: more elegant way to convert timeout in millis?
+    boolean timeoutElapsed = System.currentTimeMillis() - lastCallTime > TIMEOUT * 3000L;
     boolean bufferSizeSufficient = logBufferQueue.second.get() >= BUFFER_SIZE;
 
     return bufferSizeSufficient || timeoutElapsed;

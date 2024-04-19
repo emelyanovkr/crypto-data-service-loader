@@ -1,5 +1,6 @@
 package com.crypto.service.appender;
 
+import com.crypto.service.util.ConnectionSettings;
 import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.Core;
 import org.apache.logging.log4j.core.Filter;
@@ -8,10 +9,6 @@ import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.config.plugins.*;
 
-import java.io.IOException;
-
-// TODO: Implement timeout size buffer options, look for PluginBuilderAttribute
-//  use shutdown hook
 @Plugin(
     name = "ClickHouseAppender",
     category = Core.CATEGORY_NAME,
@@ -54,7 +51,9 @@ public class ClickHouseAppender extends AbstractAppender {
       @PluginAttribute("bufferSize") int bufferSize,
       @PluginAttribute("timeout") int timeout,
       @PluginAttribute("tableName") String tableName,
-      @PluginAttribute("flushRetryCount") int flushRetryCount) {
+      @PluginAttribute("flushRetryCount") int flushRetryCount,
+      // TODO remove in the future, implement ConnectionPool class
+      @PluginElement("ConnectionSettings") ConnectionSettings settings) {
 
     if (name == null) {
       LOGGER.info("No name provided for ClickHouseAppender, default name is set");
@@ -101,8 +100,6 @@ public class ClickHouseAppender extends AbstractAppender {
       serializedEvent =
           serializedEvent.substring(0, serializedEvent.length() - System.lineSeparator().length());
     }
-
-    // TODO: JVM SHUTDOWN HOOK
 
     logBuffer.insertLogMsg(event.getTimeMillis(), serializedEvent);
   }
