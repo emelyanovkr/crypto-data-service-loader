@@ -14,26 +14,55 @@ import java.util.Properties;
 
 public class ConnectionHandler {
 
-  public static ClickHouseNode initJavaClientConnection() throws IOException {
+  public static ClickHouseNode initClickHouseConnection() throws IOException {
     Properties properties = PropertiesLoader.loadProjectConfig();
+    return initClickHouseConnection(properties);
+  }
 
+  public static ClickHouseNode initClickHouseConnection(Properties properties) throws IOException {
+    String host = properties.getProperty("HOST");
+    int port = Integer.valueOf(properties.getProperty("PORT"));
+    String database = properties.getProperty("DATABASE");
+    String username = properties.getProperty("USERNAME");
+    String password = properties.getProperty("PASSWORD");
+    String ssl = properties.getProperty("SSL");
+    String customParams = properties.getProperty(ClickHouseHttpOption.CUSTOM_PARAMS.getKey());
+    String socketTimeout = properties.getProperty(ClickHouseClientOption.SOCKET_TIMEOUT.getKey());
+    String maxExecutionTime =
+        properties.getProperty(ClickHouseClientOption.MAX_EXECUTION_TIME.getKey());
+
+    return initClickHouseConnection(
+        host,
+        port,
+        database,
+        username,
+        password,
+        ssl,
+        customParams,
+        socketTimeout,
+        maxExecutionTime);
+  }
+
+  public static ClickHouseNode initClickHouseConnection(
+      String host,
+      int port,
+      String database,
+      String username,
+      String password,
+      String ssl,
+      String customParams,
+      String socketTimeout,
+      String maxExecutionTime)
+      throws IOException {
     return ClickHouseNode.builder()
-        .host(properties.getProperty("HOST"))
-        .port(ClickHouseProtocol.HTTP, Integer.valueOf(properties.getProperty("PORT")))
-        .database(properties.getProperty("DATABASE"))
-        .credentials(
-            ClickHouseCredentials.fromUserAndPassword(
-                properties.getProperty("USERNAME"), properties.getProperty("PASSWORD")))
-        .addOption(ClickHouseClientOption.SSL.getKey(), properties.getProperty("SSL"))
-        .addOption(
-            ClickHouseHttpOption.CUSTOM_PARAMS.getKey(),
-            properties.getProperty(ClickHouseHttpOption.CUSTOM_PARAMS.getKey()))
-        .addOption(
-            ClickHouseClientOption.SOCKET_TIMEOUT.getKey(),
-            properties.getProperty(ClickHouseClientOption.SOCKET_TIMEOUT.getKey()))
-        .addOption(
-            ClickHouseClientOption.MAX_EXECUTION_TIME.getKey(),
-            properties.getProperty(ClickHouseClientOption.MAX_EXECUTION_TIME.getKey()))
+        .host(host)
+        .port(ClickHouseProtocol.HTTP, port)
+        .database(database)
+        .credentials(ClickHouseCredentials.fromUserAndPassword(username, password))
+        .addOption(ClickHouseClientOption.SSL.getKey(), ssl)
+        .addOption(ClickHouseHttpOption.CUSTOM_PARAMS.getKey(), customParams)
+        .addOption(ClickHouseClientOption.SOCKET_TIMEOUT.getKey(), socketTimeout)
+        .addOption(ClickHouseClientOption.MAX_EXECUTION_TIME.getKey(), maxExecutionTime)
         .build();
   }
 

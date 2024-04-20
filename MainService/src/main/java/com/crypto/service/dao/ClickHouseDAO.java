@@ -4,7 +4,7 @@ import com.clickhouse.client.*;
 import com.clickhouse.data.ClickHouseCompression;
 import com.clickhouse.data.ClickHouseFormat;
 import com.clickhouse.data.ClickHousePassThruStream;
-import com.crypto.service.util.ConnectionSettings;
+import com.crypto.service.util.ConnectionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +20,7 @@ public class ClickHouseDAO {
 
   private ClickHouseDAO() {
     try {
-      this.server = ConnectionSettings.initJavaClientConnection();
+      this.server = ConnectionHandler.initClickHouseConnection();
     } catch (IOException e) {
       LOGGER.error("FAILED TO ESTABLISH CONNECTION - ", e);
       throw new RuntimeException(e);
@@ -35,6 +35,7 @@ public class ClickHouseDAO {
     return instance;
   }
 
+  // TODO DEFINE TABLE NAME, get rid of dbname
   public void insertFromCompressedFileStream(PipedInputStream pin) {
     try (ClickHouseResponse response =
         client
