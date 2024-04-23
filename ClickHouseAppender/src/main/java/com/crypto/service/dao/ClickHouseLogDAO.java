@@ -25,8 +25,6 @@ public class ClickHouseLogDAO {
     this.tableName = tableName;
   }
 
-  // TODO: provide to define database from connectionsettings?
-  //   sqlInjection possible?
   public void insertLogData(String tsvData) throws ClickHouseException
   {
     try (ClickHouseResponse response =

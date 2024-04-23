@@ -35,12 +35,12 @@ public class ClickHouseDAO {
     return instance;
   }
 
-  // TODO DEFINE TABLE NAME, get rid of dbname
-  public void insertFromCompressedFileStream(PipedInputStream pin) {
+  // TODO define default tableName?
+  public void insertFromCompressedFileStream(PipedInputStream pin, String tableName) {
     try (ClickHouseResponse response =
         client
             .write(server)
-            .query("INSERT INTO tickets_data_db.tickets_data")
+            .query("INSERT INTO " + tableName)
             .data(
                 ClickHousePassThruStream.of(pin, ClickHouseCompression.GZIP, ClickHouseFormat.CSV))
             .executeAndWait()) {
