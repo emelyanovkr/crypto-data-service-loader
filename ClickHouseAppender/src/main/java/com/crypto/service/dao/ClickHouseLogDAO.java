@@ -15,9 +15,9 @@ public class ClickHouseLogDAO {
   private final ClickHouseClient client;
   private final String tableName;
 
-  public ClickHouseLogDAO(String tableName) {
+  public ClickHouseLogDAO(String tableName, ConnectionSettings connectionSettings) {
     try {
-      this.server = ConnectionSettings.initJavaClientConnection();
+      this.server = ConnectionSettings.initClickHouseConnection(connectionSettings);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -25,17 +25,14 @@ public class ClickHouseLogDAO {
     this.tableName = tableName;
   }
 
-  // TODO: provide to define database from connectionsettings?
-  //   sqlInjection possible?
-  public void insertLogData(String tsvData) {
+  public void insertLogData(String tsvData) throws ClickHouseException
+  {
     try (ClickHouseResponse response =
         client
             .write(server)
-            .query("INSERT INTO tickets_data_db." + tableName)
+            .query("INSERT INTO " + tableName)
             .data(new ByteArrayInputStream(tsvData.getBytes(StandardCharsets.UTF_8)))
             .executeAndWait()) {
-    } catch (ClickHouseException e) {
-      throw new RuntimeException("FAILED TO INSERT LOG DATA - " + e.getMessage());
     }
   }
 }

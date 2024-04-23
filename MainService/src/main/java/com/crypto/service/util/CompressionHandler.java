@@ -40,7 +40,7 @@ public class CompressionHandler {
       LOGGER.error("COMPRESSION ERROR - ", e);
       throw new RuntimeException(e);
     }
-    // TODO: Possible to implement TOTAL DATA INSERT, TOTAL RATE, TOTAL
+    // TODO: Possible to implement TOTAL DATA INSERT, TOTAL RATE, TOTAL TIME & INSERT SESSION UUID?
 
     DecimalFormat df = new DecimalFormat("0.00");
 

@@ -87,13 +87,14 @@ public class TicketsDataReader {
 
         executor.execute(() -> handler.compressFilesWithGZIP(ticketPartition));
 
-        executor.execute(() -> clickHouseDAO.insertFromCompressedFileStream(pin));
+        executor.execute(
+            () ->
+                clickHouseDAO.insertFromCompressedFileStream(
+                    pin, Tables.TICKETS_DATA.getTableName()));
 
         //  TODO: After insertion check that COUNT(tickets_logs).equals(partitions) - insert
         //   successful (not reliable)
       }
-
-      // TODO: change this to hook JVM machine shutdown
 
     } catch (IOException e) {
       LOGGER.error("FAILED TO CONNECT PIPED STREAMS - ", e);
