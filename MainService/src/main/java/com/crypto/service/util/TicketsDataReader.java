@@ -1,5 +1,6 @@
 package com.crypto.service.util;
 
+import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.google.common.collect.ImmutableList;
@@ -16,9 +17,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CountDownLatch;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class TicketsDataReader {
@@ -28,13 +30,14 @@ public class TicketsDataReader {
   private final int THREADS_COUNT = PARTS_QUANTITY + 1;
   private final String SOURCE_PATH;
   private final Logger LOGGER = LoggerFactory.getLogger(TicketsDataReader.class);
+  private final int FLUSH_RETRY_COUNT;
 
   public TicketsDataReader() {
     String currentDate = getCurrentDate();
-
     try {
-      SOURCE_PATH =
-          PropertiesLoader.loadProjectConfig().getProperty("DATA_PATH") + "/" + currentDate;
+      Properties projectProperties = PropertiesLoader.loadProjectConfig();
+      SOURCE_PATH = projectProperties.getProperty("DATA_PATH") + "/" + currentDate;
+      FLUSH_RETRY_COUNT = Integer.parseInt(projectProperties.getProperty("flush_retry_count"));
     } catch (IllegalArgumentException | IOException e) {
       LOGGER.error("FAILED TO ACQUIRE PROPERTIES - ", e);
       throw new RuntimeException(e);
@@ -68,15 +71,17 @@ public class TicketsDataReader {
     List<String> ticketNames = getFilesInDirectory();
 
     List<List<String>> ticketParts =
-        Lists.partition(ticketNames, ticketNames.size() / (PARTS_QUANTITY - 1));
+        Lists.partition(ticketNames, ticketNames.size() / (PARTS_QUANTITY));
 
-    try (ExecutorService executor = Executors.newFixedThreadPool(THREADS_COUNT)) {
+    try (ExecutorService executor = Executors.newFixedThreadPool(THREADS_COUNT-29)) {
 
-      ClickHouseDAO clickHouseDAO = ClickHouseDAO.getInstance();
+      // TODO: ATOMIC REFERENCE TO USE IN LAMBDAS -> INSERT MANAGER
+      AtomicReference<ClickHouseDAO> clickHouseDAO =
+          new AtomicReference<>(ClickHouseDAO.getInstance());
 
       // TODO: Remove truncation of both tables
-      clickHouseDAO.truncateTable(Tables.TICKETS_LOGS.getTableName());
-      clickHouseDAO.truncateTable(Tables.TICKETS_DATA.getTableName());
+      clickHouseDAO.get().truncateTable(Tables.TICKETS_LOGS.getTableName());
+      clickHouseDAO.get().truncateTable(Tables.TICKETS_DATA.getTableName());
 
       for (List<String> ticketPartition : ticketParts) {
         PipedOutputStream pout = new PipedOutputStream();
@@ -87,10 +92,43 @@ public class TicketsDataReader {
 
         executor.execute(() -> handler.compressFilesWithGZIP(ticketPartition));
 
+        // TODO: REFACTOR HERE?
+        //  IMPLEMENT INSERT MANAGER? SYNCHRONIZED?
         executor.execute(
-            () ->
-                clickHouseDAO.insertFromCompressedFileStream(
-                    pin, Tables.TICKETS_DATA.getTableName()));
+            () -> {
+              for (int i = 0; i < FLUSH_RETRY_COUNT; i++) {
+                try {
+                  clickHouseDAO
+                      .get()
+                      .insertFromCompressedFileStream(pin, Tables.TICKETS_DATA.getTableName());
+                  break;
+                } catch (ClickHouseException e) {
+                  LOGGER.error("FAILED TO INSERT TICKETS DATA - ", e);
+
+                  System.out.println("TRYING TO RECONNECT..." + " ITERATION : " + i  + " " + Thread.currentThread().getName());
+
+                  try {
+                    Thread.sleep(3000);
+                  } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                  }
+
+                  System.out.println("WAKING UP IN TICKETS " + Thread.currentThread().getName());
+
+                  clickHouseDAO.set(ClickHouseDAO.getReconnectInstance());
+
+                  /*try {
+                    LOGGER.info("CLOSING PIPED STREAM");
+                    pin.close();
+                  } catch (IOException ex) {
+                    LOGGER.error("FAILED TO CLOSING PIPED STREAM - ", ex);
+                    throw new RuntimeException(ex);
+                  }*/
+                }
+
+              }
+              clickHouseDAO.get().countRecords(Tables.TICKETS_DATA.getTableName());
+            });
 
         //  TODO: After insertion check that COUNT(tickets_logs).equals(partitions) - insert
         //   successful (not reliable)

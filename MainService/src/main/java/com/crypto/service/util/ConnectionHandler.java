@@ -28,8 +28,8 @@ public class ConnectionHandler {
     String ssl = properties.getProperty("SSL");
     String customParams = properties.getProperty(ClickHouseHttpOption.CUSTOM_PARAMS.getKey());
     String socketTimeout = properties.getProperty(ClickHouseClientOption.SOCKET_TIMEOUT.getKey());
-    String maxExecutionTime =
-        properties.getProperty(ClickHouseClientOption.MAX_EXECUTION_TIME.getKey());
+    String connectionTimeout =
+        properties.getProperty(ClickHouseClientOption.CONNECTION_TIMEOUT.getKey());
 
     return initClickHouseConnection(
         host,
@@ -40,7 +40,7 @@ public class ConnectionHandler {
         ssl,
         customParams,
         socketTimeout,
-        maxExecutionTime);
+        connectionTimeout);
   }
 
   public static ClickHouseNode initClickHouseConnection(
@@ -52,7 +52,7 @@ public class ConnectionHandler {
       String ssl,
       String customParams,
       String socketTimeout,
-      String maxExecutionTime)
+      String connectionTimeout)
       throws IOException {
     return ClickHouseNode.builder()
         .host(host)
@@ -62,7 +62,7 @@ public class ConnectionHandler {
         .addOption(ClickHouseClientOption.SSL.getKey(), ssl)
         .addOption(ClickHouseHttpOption.CUSTOM_PARAMS.getKey(), customParams)
         .addOption(ClickHouseClientOption.SOCKET_TIMEOUT.getKey(), socketTimeout)
-        .addOption(ClickHouseClientOption.MAX_EXECUTION_TIME.getKey(), maxExecutionTime)
+        .addOption(ClickHouseClientOption.CONNECTION_TIMEOUT.getKey(), connectionTimeout)
         .build();
   }
 
