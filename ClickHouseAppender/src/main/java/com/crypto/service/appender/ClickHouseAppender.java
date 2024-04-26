@@ -21,7 +21,6 @@ public class ClickHouseAppender extends AbstractAppender {
   private static final String DEFAULT_TABLE_NAME = "tickets_logs";
 
   private final LogBufferManager logBufferManager;
-  private final ConnectionSettings connectionSettings;
 
   private ClickHouseAppender(
       String name,
@@ -34,7 +33,6 @@ public class ClickHouseAppender extends AbstractAppender {
       int flushRetryCount,
       ConnectionSettings connectionSettings) {
     super(name, filter, layout, false, null);
-    this.connectionSettings = connectionSettings;
 
     this.logBufferManager = new LogBufferManager(bufferSize, bufferFlushTimeoutSec, tableName, flushRetryCount, connectionSettings);
   }

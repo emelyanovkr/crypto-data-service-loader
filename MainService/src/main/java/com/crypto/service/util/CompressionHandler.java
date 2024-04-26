@@ -7,12 +7,14 @@ import org.slf4j.MDC;
 import java.io.*;
 import java.text.DecimalFormat;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPOutputStream;
 
 public class CompressionHandler {
   private final int BUFFER_SIZE = 131072;
   private final PipedOutputStream pout;
   private final Logger LOGGER = LoggerFactory.getLogger(CompressionHandler.class);
+  private static final AtomicInteger counter = new AtomicInteger(0);
 
   public CompressionHandler(PipedOutputStream pout) {
     this.pout = pout;
@@ -55,11 +57,15 @@ public class CompressionHandler {
     MDC.put("compression_rate", compressionRate);
     MDC.put("total_time", totalTimeStr);
 
-    LOGGER.info(
+    // TODO: UNCOMMENT HERE
+    /*LOGGER.info(
         "Compression of {} MB of data with rate {} MB/sec finished in {} sec.",
         totalSizeStr,
         compressionRate,
-        totalTimeStr);
+        totalTimeStr);*/
+
+    counter.incrementAndGet();
+    LOGGER.info("LOG MESSAGE #" + counter.get());
     MDC.clear();
   }
 }

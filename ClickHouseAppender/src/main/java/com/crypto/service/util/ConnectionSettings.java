@@ -5,14 +5,15 @@ import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseProtocol;
 import com.clickhouse.client.config.ClickHouseClientOption;
 import com.clickhouse.client.http.config.ClickHouseHttpOption;
-import com.crypto.service.dao.ClickHouseLogDAO;
 import org.apache.logging.log4j.core.config.Node;
 import org.apache.logging.log4j.core.config.plugins.Plugin;
 import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 import org.apache.logging.log4j.core.config.plugins.validation.constraints.Required;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 
 @Plugin(
     name = "ConnectionSettings",
@@ -103,8 +104,26 @@ public class ConnectionSettings {
         customParams);
   }
 
-  public ClickHouseLogDAO retryConnection(ClickHouseLogDAO clickHouseLogDAO, ConnectionSettings connectionSettings)
-  {
-    return new ClickHouseLogDAO(clickHouseLogDAO.getTableName(), connectionSettings);
+  public String testConnection() {
+    String curlQuery =
+      "curl --user "
+        + username
+        + ":"
+        + password
+        + " https://"
+        + host
+        + ":"
+        + port;
+
+    try
+    {
+      Process process = Runtime.getRuntime().exec(curlQuery.split(" "));
+
+      BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+      return reader.readLine();
+    } catch (IOException e)
+    {
+      throw new RuntimeException(e);
+    }
   }
 }

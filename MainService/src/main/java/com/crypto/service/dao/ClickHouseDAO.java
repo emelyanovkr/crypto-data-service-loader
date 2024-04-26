@@ -12,39 +12,20 @@ import java.io.*;
 
 public class ClickHouseDAO {
 
-  private static ClickHouseDAO instance;
   private final ClickHouseNode server;
   private final ClickHouseClient client;
 
   private final Logger LOGGER = LoggerFactory.getLogger(ClickHouseDAO.class);
 
-  private ClickHouseDAO() {
-    try {
-      this.server = ConnectionHandler.initClickHouseConnection();
-    } catch (IOException e) {
-      LOGGER.error("FAILED TO ESTABLISH CONNECTION - ", e);
-      throw new RuntimeException(e);
-    }
+  public ClickHouseDAO() {
+    this.server = ConnectionHandler.initClickHouseConnection();
     this.client = ClickHouseClient.newInstance(server.getProtocol());
   }
 
-  public static synchronized ClickHouseDAO getInstance() {
-    if (instance == null) {
-      instance = new ClickHouseDAO();
-    }
-    return instance;
-  }
-
-  // TODO: REFACTOR HERE?
-  public static synchronized ClickHouseDAO getReconnectInstance()
-  {
-    instance = null;
-    return ClickHouseDAO.getInstance();
-  }
-
   // TODO define default tableName?
-  public void insertFromCompressedFileStream(PipedInputStream pin, String tableName) throws ClickHouseException
-  {
+  public void insertFromCompressedFileStream(PipedInputStream pin, String tableName)
+      throws ClickHouseException {
+
     try (ClickHouseResponse response =
         client
             .write(server)

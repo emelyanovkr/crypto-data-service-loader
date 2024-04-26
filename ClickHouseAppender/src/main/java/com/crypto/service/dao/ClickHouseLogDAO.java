@@ -41,13 +41,4 @@ public class ClickHouseLogDAO {
             .data(new ByteArrayInputStream(tsvData.getBytes(StandardCharsets.UTF_8)))
             .executeAndWait()) {}
   }
-
-  public void testQuery() {
-    try (ClickHouseResponse response =
-        client.read(server).query("SELECT COUNT(*) FROM " + tableName).executeAndWait()) {
-      System.out.println("TOTAL COUNT: " + response.firstRecord().getValue(0).asLong());
-    } catch (ClickHouseException e) {
-      throw new RuntimeException(e);
-    }
-  }
 }

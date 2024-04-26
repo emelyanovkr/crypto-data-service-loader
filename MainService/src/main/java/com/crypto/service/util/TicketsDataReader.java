@@ -26,8 +26,8 @@ import java.util.stream.Collectors;
 public class TicketsDataReader {
 
   private final int PARTS_QUANTITY = 32;
-  // One more thread is intended for LogBuffer
-  private final int THREADS_COUNT = PARTS_QUANTITY + 1;
+  // 2 THREADS is minimum for using PIPED STREAMS
+  private final int THREADS_COUNT = PARTS_QUANTITY;
   private final String SOURCE_PATH;
   private final Logger LOGGER = LoggerFactory.getLogger(TicketsDataReader.class);
   private final int FLUSH_RETRY_COUNT;
@@ -38,8 +38,8 @@ public class TicketsDataReader {
       Properties projectProperties = PropertiesLoader.loadProjectConfig();
       SOURCE_PATH = projectProperties.getProperty("DATA_PATH") + "/" + currentDate;
       FLUSH_RETRY_COUNT = Integer.parseInt(projectProperties.getProperty("flush_retry_count"));
-    } catch (IllegalArgumentException | IOException e) {
-      LOGGER.error("FAILED TO ACQUIRE PROPERTIES - ", e);
+    } catch (IllegalArgumentException e) {
+      LOGGER.error("FAILED TO PARAMETERS - ", e);
       throw new RuntimeException(e);
     }
   }
@@ -73,11 +73,11 @@ public class TicketsDataReader {
     List<List<String>> ticketParts =
         Lists.partition(ticketNames, ticketNames.size() / (PARTS_QUANTITY));
 
-    try (ExecutorService executor = Executors.newFixedThreadPool(THREADS_COUNT-29)) {
+    // TODO: CHANGE THREADS COUNT
+    try (ExecutorService executor = Executors.newFixedThreadPool(THREADS_COUNT - 30)) {
 
       // TODO: ATOMIC REFERENCE TO USE IN LAMBDAS -> INSERT MANAGER
-      AtomicReference<ClickHouseDAO> clickHouseDAO =
-          new AtomicReference<>(ClickHouseDAO.getInstance());
+      AtomicReference<ClickHouseDAO> clickHouseDAO = new AtomicReference<>(new ClickHouseDAO());
 
       // TODO: Remove truncation of both tables
       clickHouseDAO.get().truncateTable(Tables.TICKETS_LOGS.getTableName());
@@ -92,6 +92,20 @@ public class TicketsDataReader {
 
         executor.execute(() -> handler.compressFilesWithGZIP(ticketPartition));
 
+        /*executor.execute(
+        () ->
+        {
+          try
+          {
+            clickHouseDAO
+                .get()
+                .insertFromCompressedFileStream(pin, Tables.TICKETS_DATA.getTableName());
+          } catch (ClickHouseException e)
+          {
+            throw new RuntimeException(e);
+          }
+        });*/
+
         // TODO: REFACTOR HERE?
         //  IMPLEMENT INSERT MANAGER? SYNCHRONIZED?
         executor.execute(
@@ -103,9 +117,17 @@ public class TicketsDataReader {
                       .insertFromCompressedFileStream(pin, Tables.TICKETS_DATA.getTableName());
                   break;
                 } catch (ClickHouseException e) {
-                  LOGGER.error("FAILED TO INSERT TICKETS DATA - ", e);
+                  // LOGGER.error("FAILED TO INSERT TICKETS DATA - ", e);
+                  // TODO: PIPE CLOSED WHEN TOO LONG FOR RECOVERING CONNECTION
+                  //  FIX CLOSED PIPE!
+                  LOGGER.error("EXCEPTION IS: {}", e.getMessage());
 
-                  System.out.println("TRYING TO RECONNECT..." + " ITERATION : " + i  + " " + Thread.currentThread().getName());
+                  System.out.println(
+                      "TRYING TO RECONNECT..."
+                          + " ITERATION : "
+                          + i
+                          + " "
+                          + Thread.currentThread().getName());
 
                   try {
                     Thread.sleep(3000);
@@ -115,8 +137,24 @@ public class TicketsDataReader {
 
                   System.out.println("WAKING UP IN TICKETS " + Thread.currentThread().getName());
 
-                  clickHouseDAO.set(ClickHouseDAO.getReconnectInstance());
+                  clickHouseDAO.set(ConnectionHandler.reconnect());
 
+                  if (clickHouseDAO.get() != null) {
+                    System.out.println("TESTING CONNECTION...");
+
+                    if (ConnectionHandler.testConnection() != null) {
+                      i = 0;
+                      System.out.println("SUCCESSFULLY CONNECTED! " + ConnectionHandler.testConnection());
+                    }
+                  }
+                  else
+                  {
+                    System.out.println(
+                      "CLICKHOUSE DAO IS NULL, TRYING TO RECONNECT: "
+                        + i
+                        + " "
+                        + Thread.currentThread().getName());
+                  }
                   /*try {
                     LOGGER.info("CLOSING PIPED STREAM");
                     pin.close();
@@ -125,9 +163,7 @@ public class TicketsDataReader {
                     throw new RuntimeException(ex);
                   }*/
                 }
-
               }
-              clickHouseDAO.get().countRecords(Tables.TICKETS_DATA.getTableName());
             });
 
         //  TODO: After insertion check that COUNT(tickets_logs).equals(partitions) - insert

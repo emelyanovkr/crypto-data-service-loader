@@ -5,21 +5,25 @@ import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseProtocol;
 import com.clickhouse.client.config.ClickHouseClientOption;
 import com.clickhouse.client.http.config.ClickHouseHttpOption;
-import com.clickhouse.jdbc.ClickHouseConnection;
-import com.clickhouse.jdbc.ClickHouseDataSource;
+import com.crypto.service.dao.ClickHouseDAO;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.sql.SQLException;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ConnectionHandler {
 
-  public static ClickHouseNode initClickHouseConnection() throws IOException {
+  private static AtomicInteger enterCounter = new AtomicInteger(0);
+
+  public static ClickHouseNode initClickHouseConnection() {
     Properties properties = PropertiesLoader.loadProjectConfig();
     return initClickHouseConnection(properties);
   }
 
-  public static ClickHouseNode initClickHouseConnection(Properties properties) throws IOException {
+  public static ClickHouseNode initClickHouseConnection(Properties properties) {
     String host = properties.getProperty("HOST");
     int port = Integer.valueOf(properties.getProperty("PORT"));
     String database = properties.getProperty("DATABASE");
@@ -52,8 +56,7 @@ public class ConnectionHandler {
       String ssl,
       String customParams,
       String socketTimeout,
-      String connectionTimeout)
-      throws IOException {
+      String connectionTimeout) {
     return ClickHouseNode.builder()
         .host(host)
         .port(ClickHouseProtocol.HTTP, port)
@@ -66,22 +69,39 @@ public class ConnectionHandler {
         .build();
   }
 
-  @Deprecated
-  public static ClickHouseConnection initJDBCConnection() throws SQLException, IOException {
+  public static ClickHouseDAO reconnect() {
+    if (enterCounter.get() == 0) {
+      try {
+        enterCounter.incrementAndGet();
+        return new ClickHouseDAO();
+      } finally {
+        enterCounter.set(0);
+      }
+    }
+    return null;
+  }
+
+  public static String testConnection() {
     Properties properties = PropertiesLoader.loadProjectConfig();
-    String url_connection =
-        "jdbc:ch:https://"
+    String curlQuery =
+        "curl --user "
+            + properties.getProperty("USERNAME")
+            + ":"
+            + properties.getProperty("PASSWORD")
+            + " https://"
             + properties.getProperty("HOST")
             + ":"
-            + properties.getProperty("PORT")
-            + "/"
-            + properties.getProperty("DATABASE")
-            + "?ssl="
-            + properties.getProperty("SSL")
-            + "&custom_http_params=async_insert=1,wait_for_async_insert=1";
+            + properties.getProperty("PORT");
 
-    ClickHouseDataSource dataSource = new ClickHouseDataSource(url_connection, properties);
-    return dataSource.getConnection(
-        properties.getProperty("USERNAME"), properties.getProperty("PASSWORD"));
+    try
+    {
+      Process process = Runtime.getRuntime().exec(curlQuery.split(" "));
+
+      BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+      return reader.readLine();
+    } catch (IOException e)
+    {
+      throw new RuntimeException(e);
+    }
   }
 }

@@ -7,6 +7,8 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class LogBufferManager {
 
@@ -86,6 +88,22 @@ public class LogBufferManager {
     }
   }
 
+  private String extractLogMessage(String input)
+  {
+    if(input == null)
+    {
+      return null;
+    }
+    Pattern pattern = Pattern.compile("(LOG MESSAGE #\\d+)\"");
+    Matcher matcher = pattern.matcher(input);
+
+    if (matcher.find()) {
+      return matcher.group(1);
+    } else {
+      return null;
+    }
+  }
+
   private void flush() {
     LogBufferRecord logBufferQueueToInsert = logBufferQueue.get();
     logBufferQueue.compareAndSet(logBufferQueueToInsert, new LogBufferRecord());
@@ -96,27 +114,32 @@ public class LogBufferManager {
     System.out.println("ENTERING FLUSH: " + Thread.currentThread().getName());
     for (int i = 0; i < flushRetryCount; i++) {
       try {
+        System.out.println("BUFFER SIZE: " + logBufferQueueToInsert.logBufferSize + ", FIRST RECORD IN BUFFER: " + extractLogMessage(logBufferQueueToInsert.logBuffer.peek()));
         clickHouseLogDAO.insertLogData(String.join("\n", logBufferQueueToInsert.logBuffer));
         break;
       } catch (Exception e) {
         // TODO: REMOVE DEBUG PRINT
-        System.out.println("THREAD IS GOING TO SLEEP: " + Thread.currentThread().getName());
+        System.out.println("THREAD IS GOING TO SLEEP: " + i + " " + Thread.currentThread().getName());
 
         try
         {
-          Thread.sleep(10000);
+          Thread.sleep(3000);
         } catch (InterruptedException ex)
         {
           throw new RuntimeException(ex);
         }
 
         System.out.println(
-            "THREAD IS WAKING UP, TRYING TO RECONNECT: " + Thread.currentThread().getName());
-        this.clickHouseLogDAO =
-            connectionSettings.retryConnection(clickHouseLogDAO, connectionSettings);
+            "THREAD IS WAKING UP, TRYING TO RECONNECT: " + i + " "  + Thread.currentThread().getName());
+        this.clickHouseLogDAO = new ClickHouseLogDAO(clickHouseLogDAO.getTableName(), connectionSettings);
+
+        if (connectionSettings.testConnection() != null) {
+          i = 0;
+          System.out.println("Successful connection! " + connectionSettings.testConnection());
+          continue;
+        }
       }
     }
-    clickHouseLogDAO.testQuery();
   }
 
   public void insertLogMsg(long timestamp, String log) {
