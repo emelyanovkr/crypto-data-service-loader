@@ -11,7 +11,9 @@ import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 import org.apache.logging.log4j.core.config.plugins.validation.constraints.Required;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 
 @Plugin(
     name = "ConnectionSettings",
@@ -26,7 +28,6 @@ public class ConnectionSettings {
   public final String password;
   public final String SSL;
   public final String socketTimeout;
-  public final String maxExecutionTime;
   public final String customParams;
 
   private ConnectionSettings(
@@ -37,7 +38,6 @@ public class ConnectionSettings {
       String password,
       String SSL,
       String socketTimeout,
-      String maxExecutionTime,
       String customParams) {
     this.host = host;
     this.port = port;
@@ -46,7 +46,6 @@ public class ConnectionSettings {
     this.password = password;
     this.SSL = SSL;
     this.socketTimeout = socketTimeout;
-    this.maxExecutionTime = maxExecutionTime;
     this.customParams = customParams;
   }
 
@@ -59,7 +58,6 @@ public class ConnectionSettings {
             connectionSettings.password,
             connectionSettings.SSL,
             connectionSettings.socketTimeout,
-            connectionSettings.maxExecutionTime,
             connectionSettings.customParams);
   }
 
@@ -71,7 +69,6 @@ public class ConnectionSettings {
       String password,
       String SSL,
       String socketTimeout,
-      String maxExecutionTime,
       String customParams)
       throws IOException {
     return ClickHouseNode.builder()
@@ -81,7 +78,6 @@ public class ConnectionSettings {
         .credentials(ClickHouseCredentials.fromUserAndPassword(username, password))
         .addOption(ClickHouseClientOption.SSL.getKey(), SSL)
         .addOption(ClickHouseClientOption.SOCKET_TIMEOUT.getKey(), socketTimeout)
-        .addOption(ClickHouseClientOption.MAX_EXECUTION_TIME.getKey(), maxExecutionTime)
         .addOption(ClickHouseHttpOption.CUSTOM_PARAMS.getKey(), customParams)
         .build();
   }
@@ -95,7 +91,6 @@ public class ConnectionSettings {
       @PluginAttribute("PASSWORD") @Required(message = "No password provided") String password,
       @PluginAttribute("SSL") String SSL,
       @PluginAttribute("SOCKET_TIMEOUT") String socketTimeout,
-      @PluginAttribute("MAX_EXECUTION_TIME") String maxExecutionTime,
       @PluginAttribute("CUSTOM_PARAMS") String customParams) {
 
     return new ConnectionSettings(
@@ -106,7 +101,29 @@ public class ConnectionSettings {
         password,
         SSL,
         socketTimeout,
-        maxExecutionTime,
         customParams);
+  }
+
+  public String testConnection() {
+    String curlQuery =
+      "curl --user "
+        + username
+        + ":"
+        + password
+        + " https://"
+        + host
+        + ":"
+        + port;
+
+    try
+    {
+      Process process = Runtime.getRuntime().exec(curlQuery.split(" "));
+
+      BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+      return reader.readLine();
+    } catch (IOException e)
+    {
+      throw new RuntimeException(e);
+    }
   }
 }

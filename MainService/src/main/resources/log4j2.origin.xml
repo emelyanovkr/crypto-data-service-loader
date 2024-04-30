@@ -13,7 +13,6 @@
                                 DATABASE=""
                                 SSL=""
                                 SOCKET_TIMEOUT=""
-                                MAX_EXECUTION_TIME=""
             />
             <JsonTemplateLayout eventTemplateUri="classpath:LogMsgLayout.json"/>
         </ClickHouseAppender>

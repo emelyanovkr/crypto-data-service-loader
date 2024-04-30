@@ -12,10 +12,9 @@ public class LogBufferManager {
 
   private final ClickHouseLogDAO clickHouseLogDAO;
 
-  private final AtomicReference<LogBufferRecord>
-      logBufferQueue;
+  private final AtomicReference<LogBufferRecord> logBufferQueue;
 
-  static class LogBufferRecord{
+  static class LogBufferRecord {
     final Queue<String> logBuffer;
     final AtomicInteger logBufferSize;
     final AtomicInteger referenceCounter;
@@ -31,24 +30,25 @@ public class LogBufferManager {
 
   private final int timeoutSec;
   private final int flushRetryCount;
+  private final int sleepOnRetrySec;
 
   public LogBufferManager(
       int buffer_size,
       int timeoutSec,
       String tableName,
       int flushRetryCount,
+      int sleepOnRetrySec,
       ConnectionSettings connectionSettings) {
 
     this.bufferSize = buffer_size;
     this.timeoutSec = timeoutSec;
     this.flushRetryCount = flushRetryCount;
+    this.sleepOnRetrySec = sleepOnRetrySec;
 
     this.clickHouseLogDAO = new ClickHouseLogDAO(tableName, connectionSettings);
-    this.logBufferQueue =
-        new AtomicReference<>(
-            new LogBufferRecord());
+    this.logBufferQueue = new AtomicReference<>(new LogBufferRecord());
 
-    Thread bufferService = new Thread(this::bufferManagement);
+    Thread bufferService = new Thread(this::bufferManagement, "BUFFER-SERVICE-THREAD-1");
     bufferService.setDaemon(true);
     bufferService.start();
 
@@ -61,8 +61,7 @@ public class LogBufferManager {
             });
   }
 
-  private boolean flushRequired(
-      LogBufferRecord logBufferQueue, long lastCallTime) {
+  private boolean flushRequired(LogBufferRecord logBufferQueue, long lastCallTime) {
 
     boolean timeoutElapsed = System.currentTimeMillis() - lastCallTime > timeoutSec * 1000L;
     boolean bufferSizeSufficient = logBufferQueue.logBufferSize.get() >= bufferSize;
@@ -73,11 +72,13 @@ public class LogBufferManager {
   public void bufferManagement() {
     long lastCallTime = System.currentTimeMillis();
     while (true) {
+
       if (flushRequired(logBufferQueue.get(), lastCallTime)) {
         lastCallTime = System.currentTimeMillis();
 
         flush();
       }
+
       try {
         Thread.sleep(100);
       } catch (InterruptedException e) {
@@ -93,13 +94,27 @@ public class LogBufferManager {
     // Spinning lock
     while (logBufferQueueToInsert.referenceCounter.get() != 0) {}
 
+    boolean flushSuccessful = false;
     for (int i = 0; i < flushRetryCount; i++) {
       try {
         clickHouseLogDAO.insertLogData(String.join("\n", logBufferQueueToInsert.logBuffer));
+        flushSuccessful = true;
         break;
       } catch (Exception e) {
-        //TODO: logic related to re-connection
+        System.err.println(this.getClass().getName() + " CONNECTION LOST: " + e.getMessage());
+
+        if (sleepOnRetrySec > 0) {
+          try {
+            Thread.sleep(sleepOnRetrySec);
+          } catch (InterruptedException ex) {
+            throw new RuntimeException(ex);
+          }
+        }
       }
+    }
+    if (!flushSuccessful) {
+      System.err.println(
+          this.getClass().getName() + " LOST MESSAGES: " + logBufferQueueToInsert.logBuffer.size());
     }
   }
 

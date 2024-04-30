@@ -7,38 +7,52 @@ import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
+import java.io.*;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CountDownLatch;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class TicketsDataReader {
 
-  private final int PARTS_QUANTITY = 32;
-  // One more thread is intended for LogBuffer
-  private final int THREADS_COUNT = PARTS_QUANTITY + 1;
-  private final String SOURCE_PATH;
+  private final int PARTS_QUANTITY;
+  // 2 THREADS is minimum for using PIPED STREAMS
+  private final int THREADS_COUNT;
+
+  private final ExecutorService insert_executor;
+  private final ExecutorService compression_executor;
+
   private final Logger LOGGER = LoggerFactory.getLogger(TicketsDataReader.class);
+
+  private final String SOURCE_PATH;
+
+  private final int FLUSH_RETRY_COUNT;
 
   public TicketsDataReader() {
     String currentDate = getCurrentDate();
-
     try {
-      SOURCE_PATH =
-          PropertiesLoader.loadProjectConfig().getProperty("DATA_PATH") + "/" + currentDate;
-    } catch (IllegalArgumentException | IOException e) {
-      LOGGER.error("FAILED TO ACQUIRE PROPERTIES - ", e);
+      Properties projectProperties = PropertiesLoader.loadProjectConfig();
+
+      PARTS_QUANTITY =
+          Integer.parseInt(projectProperties.getProperty("data_divided_parts_quantity"));
+      THREADS_COUNT = PARTS_QUANTITY / 2;
+
+      SOURCE_PATH = projectProperties.getProperty("DATA_PATH") + "/" + currentDate;
+      FLUSH_RETRY_COUNT = Integer.parseInt(projectProperties.getProperty("flush_retry_count"));
+
+    } catch (IllegalArgumentException e) {
+      LOGGER.error("FAILED TO PARAMETERS - ", e);
       throw new RuntimeException(e);
     }
+
+    insert_executor = Executors.newFixedThreadPool(THREADS_COUNT);
+    compression_executor = Executors.newFixedThreadPool(THREADS_COUNT);
   }
 
   private String getCurrentDate() {
@@ -68,37 +82,61 @@ public class TicketsDataReader {
     List<String> ticketNames = getFilesInDirectory();
 
     List<List<String>> ticketParts =
-        Lists.partition(ticketNames, ticketNames.size() / (PARTS_QUANTITY - 1));
+        Lists.partition(ticketNames, ticketNames.size() / (PARTS_QUANTITY));
 
-    try (ExecutorService executor = Executors.newFixedThreadPool(THREADS_COUNT)) {
+    ClickHouseDAO clickHouseDAO = new ClickHouseDAO();
 
-      ClickHouseDAO clickHouseDAO = ClickHouseDAO.getInstance();
+    // TODO: Remove truncation of both tables
+    clickHouseDAO.truncateTable(Tables.TICKETS_LOGS.getTableName());
+    clickHouseDAO.truncateTable(Tables.TICKETS_DATA.getTableName());
 
-      // TODO: Remove truncation of both tables
-      clickHouseDAO.truncateTable(Tables.TICKETS_LOGS.getTableName());
-      clickHouseDAO.truncateTable(Tables.TICKETS_DATA.getTableName());
+    for (List<String> ticketPartition : ticketParts) {
+      insert_executor.execute(
+          () -> {
+            AtomicBoolean compressionTaskRunning = new AtomicBoolean(false);
+            AtomicBoolean insertSuccessful = new AtomicBoolean(false);
+            for (int i = 0; i < FLUSH_RETRY_COUNT; i++) {
+              AtomicBoolean stopCompressionCommand = new AtomicBoolean(false);
 
-      for (List<String> ticketPartition : ticketParts) {
-        PipedOutputStream pout = new PipedOutputStream();
-        PipedInputStream pin = new PipedInputStream();
-        pin.connect(pout);
+              PipedOutputStream pout = new PipedOutputStream();
+              PipedInputStream pin = new PipedInputStream();
 
-        CompressionHandler handler = new CompressionHandler(pout);
+              try {
+                pin.connect(pout);
 
-        executor.execute(() -> handler.compressFilesWithGZIP(ticketPartition));
+                // spinning lock
+                while (compressionTaskRunning.get()) {}
 
-        executor.execute(
-            () ->
+                compressionTaskRunning.set(true);
+
+                CompressionHandler handler =
+                    new CompressionHandler(pout, compressionTaskRunning, stopCompressionCommand);
+
+                compression_executor.execute(() -> handler.compressFilesWithGZIP(ticketPartition));
+
                 clickHouseDAO.insertFromCompressedFileStream(
-                    pin, Tables.TICKETS_DATA.getTableName()));
+                    pin, Tables.TICKETS_DATA.getTableName());
+                insertSuccessful.set(true);
+                break;
+              } catch (Exception e) {
+                LOGGER.error("FAILED TO INSERT TICKETS DATA - ", e);
 
-        //  TODO: After insertion check that COUNT(tickets_logs).equals(partitions) - insert
-        //   successful (not reliable)
-      }
+                stopCompressionCommand.set(true);
 
-    } catch (IOException e) {
-      LOGGER.error("FAILED TO CONNECT PIPED STREAMS - ", e);
-      throw new RuntimeException(e);
+                try {
+                  pin.close();
+                  Thread.sleep(500);
+                } catch (InterruptedException | IOException ex) {
+                  throw new RuntimeException(ex);
+                }
+              }
+            }
+            if (!insertSuccessful.get()) {
+              System.err.println(this.getClass().getName() + " LOST TICKETS: " );
+            }
+          });
+      //  TODO: After insertion check that COUNT(tickets_logs).equals(partitions) - insert
+      //   successful (not reliable)
     }
   }
 }
