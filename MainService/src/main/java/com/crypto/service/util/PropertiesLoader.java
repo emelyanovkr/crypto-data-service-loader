@@ -14,7 +14,7 @@ public class PropertiesLoader {
     try (InputStream input = Resources.getResource(RESOURCE_NAME).openStream()) {
       properties.load(input);
     } catch (IOException e) {
-      // TODO: LOGGING HERE?
+      System.err.println(PropertiesLoader.class.getName() + "FAILED TO LOAD CONFIGURATION" + e.getMessage());
       throw new RuntimeException(e);
     }
     return properties;

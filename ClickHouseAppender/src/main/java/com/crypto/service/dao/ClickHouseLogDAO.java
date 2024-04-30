@@ -9,12 +9,6 @@ import java.nio.charset.StandardCharsets;
 
 public class ClickHouseLogDAO {
 
-  // TODO: REFACTOR CONNECTION SETTINGS
-  //  IMPLEMENT RECONNECT IN CLICKHOUSE DAO
-  //  DIFFERENT APPENDERS
-  //  CREATING TEST PLATFORM
-  //  TEST DIFFERENT CONNECTION SITUATION ON SMALL THREAD COUNT
-
   private final ClickHouseNode server;
   private final ClickHouseClient client;
   private final String tableName;

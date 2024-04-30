@@ -22,7 +22,6 @@ public class ClickHouseDAO {
     this.client = ClickHouseClient.newInstance(server.getProtocol());
   }
 
-  // TODO define default tableName?
   public void insertFromCompressedFileStream(PipedInputStream pin, String tableName)
       throws ClickHouseException {
 

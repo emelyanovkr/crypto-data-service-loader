@@ -7,12 +7,10 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class LogBufferManager {
 
-  private ClickHouseLogDAO clickHouseLogDAO;
+  private final ClickHouseLogDAO clickHouseLogDAO;
 
   private final AtomicReference<LogBufferRecord> logBufferQueue;
 
@@ -32,19 +30,20 @@ public class LogBufferManager {
 
   private final int timeoutSec;
   private final int flushRetryCount;
-  private final ConnectionSettings connectionSettings;
+  private final int sleepOnRetrySec;
 
   public LogBufferManager(
       int buffer_size,
       int timeoutSec,
       String tableName,
       int flushRetryCount,
+      int sleepOnRetrySec,
       ConnectionSettings connectionSettings) {
 
     this.bufferSize = buffer_size;
     this.timeoutSec = timeoutSec;
     this.flushRetryCount = flushRetryCount;
-    this.connectionSettings = connectionSettings;
+    this.sleepOnRetrySec = sleepOnRetrySec;
 
     this.clickHouseLogDAO = new ClickHouseLogDAO(tableName, connectionSettings);
     this.logBufferQueue = new AtomicReference<>(new LogBufferRecord());
@@ -54,12 +53,12 @@ public class LogBufferManager {
     bufferService.start();
 
     Runtime.getRuntime()
-    .addShutdownHook(
-        new Thread("SHUTDOWN-THREAD") {
-          public void run() {
-            flush();
-          }
-        });
+        .addShutdownHook(
+            new Thread("SHUTDOWN-THREAD") {
+              public void run() {
+                flush();
+              }
+            });
   }
 
   private boolean flushRequired(LogBufferRecord logBufferQueue, long lastCallTime) {
@@ -88,22 +87,6 @@ public class LogBufferManager {
     }
   }
 
-  private String extractLogMessage(String input)
-  {
-    if(input == null)
-    {
-      return null;
-    }
-    Pattern pattern = Pattern.compile("(LOG MESSAGE #\\d+)\"");
-    Matcher matcher = pattern.matcher(input);
-
-    if (matcher.find()) {
-      return matcher.group(1);
-    } else {
-      return null;
-    }
-  }
-
   private void flush() {
     LogBufferRecord logBufferQueueToInsert = logBufferQueue.get();
     logBufferQueue.compareAndSet(logBufferQueueToInsert, new LogBufferRecord());
@@ -111,34 +94,27 @@ public class LogBufferManager {
     // Spinning lock
     while (logBufferQueueToInsert.referenceCounter.get() != 0) {}
 
-    System.out.println("ENTERING FLUSH: " + Thread.currentThread().getName());
+    boolean flushSuccessful = false;
     for (int i = 0; i < flushRetryCount; i++) {
       try {
-        System.out.println("BUFFER SIZE: " + logBufferQueueToInsert.logBufferSize + ", FIRST RECORD IN BUFFER: " + extractLogMessage(logBufferQueueToInsert.logBuffer.peek()));
         clickHouseLogDAO.insertLogData(String.join("\n", logBufferQueueToInsert.logBuffer));
+        flushSuccessful = true;
         break;
       } catch (Exception e) {
-        // TODO: REMOVE DEBUG PRINT
-        System.out.println("THREAD IS GOING TO SLEEP: " + i + " " + Thread.currentThread().getName());
+        System.err.println(this.getClass().getName() + " CONNECTION LOST: " + e.getMessage());
 
-        try
-        {
-          Thread.sleep(3000);
-        } catch (InterruptedException ex)
-        {
-          throw new RuntimeException(ex);
-        }
-
-        System.out.println(
-            "THREAD IS WAKING UP, TRYING TO RECONNECT: " + i + " "  + Thread.currentThread().getName());
-        this.clickHouseLogDAO = new ClickHouseLogDAO(clickHouseLogDAO.getTableName(), connectionSettings);
-
-        if (connectionSettings.testConnection() != null) {
-          i = 0;
-          System.out.println("Successful connection! " + connectionSettings.testConnection());
-          continue;
+        if (sleepOnRetrySec > 0) {
+          try {
+            Thread.sleep(sleepOnRetrySec);
+          } catch (InterruptedException ex) {
+            throw new RuntimeException(ex);
+          }
         }
       }
+    }
+    if (!flushSuccessful) {
+      System.err.println(
+          this.getClass().getName() + " LOST MESSAGES: " + logBufferQueueToInsert.logBuffer.size());
     }
   }
 

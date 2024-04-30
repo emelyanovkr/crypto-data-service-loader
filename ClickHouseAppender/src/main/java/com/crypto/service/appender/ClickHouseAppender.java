@@ -31,10 +31,18 @@ public class ClickHouseAppender extends AbstractAppender {
       int bufferFlushTimeoutSec,
       String tableName,
       int flushRetryCount,
+      int sleepOnRetrySec,
       ConnectionSettings connectionSettings) {
     super(name, filter, layout, false, null);
 
-    this.logBufferManager = new LogBufferManager(bufferSize, bufferFlushTimeoutSec, tableName, flushRetryCount, connectionSettings);
+    this.logBufferManager =
+        new LogBufferManager(
+            bufferSize,
+            bufferFlushTimeoutSec,
+            tableName,
+            flushRetryCount,
+            sleepOnRetrySec,
+            connectionSettings);
   }
 
   @PluginFactory
@@ -47,6 +55,7 @@ public class ClickHouseAppender extends AbstractAppender {
       @PluginAttribute("timeoutSec") int timeoutSec,
       @PluginAttribute("tableName") String tableName,
       @PluginAttribute("flushRetryCount") int flushRetryCount,
+      @PluginAttribute("sleepOnRetrySec") int sleepOnRetrySec,
       @PluginElement("ConnectionSettings") ConnectionSettings connectionSettings) {
 
     if (name == null) {
@@ -88,6 +97,7 @@ public class ClickHouseAppender extends AbstractAppender {
         timeoutSec,
         tableName,
         flushRetryCount,
+        sleepOnRetrySec,
         connectionSettings);
   }
 
