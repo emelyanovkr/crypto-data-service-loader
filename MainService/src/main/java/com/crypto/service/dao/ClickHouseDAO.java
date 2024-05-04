@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ClickHouseDAO {
 
@@ -16,6 +17,8 @@ public class ClickHouseDAO {
   private final ClickHouseClient client;
 
   private final Logger LOGGER = LoggerFactory.getLogger(ClickHouseDAO.class);
+
+  private final AtomicInteger counter = new AtomicInteger(0);
 
   public ClickHouseDAO() {
     this.server = ConnectionHandler.initClickHouseConnection();
@@ -25,6 +28,7 @@ public class ClickHouseDAO {
   public void insertFromCompressedFileStream(PipedInputStream pin, String tableName)
       throws ClickHouseException {
 
+    LOGGER.info("INSERTING FROM STREAM FOR DIFF LOGGER: " + counter.incrementAndGet());
     try (ClickHouseResponse response =
         client
             .write(server)

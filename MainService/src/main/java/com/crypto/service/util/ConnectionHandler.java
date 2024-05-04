@@ -24,6 +24,8 @@ public class ConnectionHandler {
     String ssl = properties.getProperty("SSL");
     String customParams = properties.getProperty(ClickHouseHttpOption.CUSTOM_PARAMS.getKey());
     String socketTimeout = properties.getProperty(ClickHouseClientOption.SOCKET_TIMEOUT.getKey());
+    String socketKeepAlive =
+        properties.getProperty(ClickHouseClientOption.SOCKET_KEEPALIVE.getKey());
     String connectionTimeout =
         properties.getProperty(ClickHouseClientOption.CONNECTION_TIMEOUT.getKey());
 
@@ -36,6 +38,7 @@ public class ConnectionHandler {
         ssl,
         customParams,
         socketTimeout,
+        socketKeepAlive,
         connectionTimeout);
   }
 
@@ -48,6 +51,7 @@ public class ConnectionHandler {
       String ssl,
       String customParams,
       String socketTimeout,
+      String socketKeepAlive,
       String connectionTimeout) {
     return ClickHouseNode.builder()
         .host(host)
@@ -57,6 +61,7 @@ public class ConnectionHandler {
         .addOption(ClickHouseClientOption.SSL.getKey(), ssl)
         .addOption(ClickHouseHttpOption.CUSTOM_PARAMS.getKey(), customParams)
         .addOption(ClickHouseClientOption.SOCKET_TIMEOUT.getKey(), socketTimeout)
+        .addOption(ClickHouseClientOption.SOCKET_KEEPALIVE.getKey(), socketKeepAlive)
         .addOption(ClickHouseClientOption.CONNECTION_TIMEOUT.getKey(), connectionTimeout)
         .build();
   }
