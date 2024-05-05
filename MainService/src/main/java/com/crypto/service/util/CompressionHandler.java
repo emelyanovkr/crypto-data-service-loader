@@ -15,7 +15,6 @@ public class CompressionHandler {
   private final int BUFFER_SIZE = 131072;
   private final PipedOutputStream pout;
   private final Logger LOGGER = LoggerFactory.getLogger(CompressionHandler.class);
-  private static final AtomicInteger counter = new AtomicInteger(0);
 
   private final AtomicBoolean taskRunningStatus;
   private final AtomicBoolean stopCommand;

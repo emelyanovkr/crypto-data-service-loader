@@ -89,7 +89,6 @@ public class TicketsDataReader {
     // TODO: Remove truncation of both tables
     clickHouseDAO.truncateTable(Tables.TICKETS_LOGS.getTableName());
     clickHouseDAO.truncateTable(Tables.TICKETS_DATA.getTableName());
-    clickHouseDAO.truncateTable("test_table");
 
     for (List<String> ticketPartition : ticketParts) {
       insert_executor.execute(
