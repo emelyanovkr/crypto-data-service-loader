@@ -28,7 +28,6 @@ public class ClickHouseDAO {
   public void insertFromCompressedFileStream(PipedInputStream pin, String tableName)
       throws ClickHouseException {
 
-    LOGGER.info("INSERTING FROM STREAM FOR DIFF LOGGER: " + counter.incrementAndGet());
     try (ClickHouseResponse response =
         client
             .write(server)
