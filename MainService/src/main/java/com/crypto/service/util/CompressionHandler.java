@@ -6,9 +6,9 @@ import org.slf4j.MDC;
 
 import java.io.*;
 import java.text.DecimalFormat;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPOutputStream;
 
 public class CompressionHandler {
@@ -28,6 +28,10 @@ public class CompressionHandler {
 
   public void compressFilesWithGZIP(List<String> ticketsPath) {
 
+    if (ticketsPath == null || ticketsPath.isEmpty()) {
+      return;
+    }
+
     try {
       long start = System.currentTimeMillis();
       double totalSize = 0;
@@ -39,11 +43,9 @@ public class CompressionHandler {
             final byte[] buffer = new byte[BUFFER_SIZE];
             int n;
             while ((n = fin.read(buffer)) != -1) {
-
               if (stopCommand.get()) {
                 return;
               }
-
               gzOut.write(buffer, 0, n);
               totalSize += n;
             }
