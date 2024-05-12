@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class ClickHouseDAO {
 
@@ -18,12 +17,12 @@ public class ClickHouseDAO {
 
   private final Logger LOGGER = LoggerFactory.getLogger(ClickHouseDAO.class);
 
-  private final AtomicInteger counter = new AtomicInteger(0);
-
   public ClickHouseDAO() {
     this.server = ConnectionHandler.initClickHouseConnection();
     this.client = ClickHouseClient.newInstance(server.getProtocol());
   }
+
+  // TODO ADD TABLE FOR INSERT STATUS
 
   public void insertFromCompressedFileStream(PipedInputStream pin, String tableName)
       throws ClickHouseException {

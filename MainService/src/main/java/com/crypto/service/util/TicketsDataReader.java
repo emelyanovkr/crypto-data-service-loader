@@ -34,6 +34,8 @@ public class TicketsDataReader {
 
   private final int FLUSH_RETRY_COUNT;
 
+  private final ClickHouseDAO clickHouseDAO;
+
   public TicketsDataReader() {
     String currentDate = getCurrentDate();
     try {
@@ -53,6 +55,8 @@ public class TicketsDataReader {
 
     insert_executor = Executors.newFixedThreadPool(THREADS_COUNT);
     compression_executor = Executors.newFixedThreadPool(THREADS_COUNT);
+
+    clickHouseDAO = new ClickHouseDAO();
   }
 
   private String getCurrentDate() {
@@ -79,18 +83,16 @@ public class TicketsDataReader {
   }
 
   public void readExecutor() {
-    List<String> ticketNames = getFilesInDirectory();
+    List<String> tickerNames = getFilesInDirectory();
 
-    List<List<String>> ticketParts =
-        Lists.partition(ticketNames, ticketNames.size() / (PARTS_QUANTITY));
-
-    ClickHouseDAO clickHouseDAO = new ClickHouseDAO();
+    List<List<String>> tickerParts =
+        Lists.partition(tickerNames, tickerNames.size() / (PARTS_QUANTITY));
 
     // TODO: Remove truncation of both tables
     clickHouseDAO.truncateTable(Tables.TICKETS_LOGS.getTableName());
     clickHouseDAO.truncateTable(Tables.TICKETS_DATA.getTableName());
 
-    for (List<String> ticketPartition : ticketParts) {
+    for (List<String> ticketPartition : tickerParts) {
       insert_executor.execute(
           () -> {
             AtomicBoolean compressionTaskRunning = new AtomicBoolean(false);
