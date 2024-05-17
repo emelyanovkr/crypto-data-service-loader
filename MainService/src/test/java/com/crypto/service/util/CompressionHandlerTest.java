@@ -52,12 +52,12 @@ public class CompressionHandlerTest {
 
   @Test
   public void compressedDataEqualsToSourceData() {
-    List<String> ticketsPath = new ArrayList<>();
+    List<String> tickersPath = new ArrayList<>();
     String FILENAME_TO_TEST = "src/test/resources/testFilesForCompression/testFile_one.txt";
-    ticketsPath.add(FILENAME_TO_TEST);
+    tickersPath.add(FILENAME_TO_TEST);
 
     Thread compressingThread =
-        new Thread(() -> compressionHandler.compressFilesWithGZIP(ticketsPath));
+        new Thread(() -> compressionHandler.compressFilesWithGZIP(tickersPath));
     compressingThread.start();
 
     try (GZIPInputStream gzipInputStream = new GZIPInputStream(pin)) {

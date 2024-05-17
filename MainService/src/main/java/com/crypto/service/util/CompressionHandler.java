@@ -26,9 +26,9 @@ public class CompressionHandler {
     this.stopCommand = stopCommand;
   }
 
-  public void compressFilesWithGZIP(List<String> ticketsPath) {
+  public void compressFilesWithGZIP(List<String> tickersPath) {
 
-    if (ticketsPath == null || ticketsPath.isEmpty()) {
+    if (tickersPath == null || tickersPath.isEmpty()) {
       return;
     }
 
@@ -37,7 +37,7 @@ public class CompressionHandler {
       double totalSize = 0;
 
       try (GZIPOutputStream gzOut = new GZIPOutputStream(pout)) {
-        for (String file : ticketsPath) {
+        for (String file : tickersPath) {
 
           try (InputStream fin = new FileInputStream(file)) {
             final byte[] buffer = new byte[BUFFER_SIZE];

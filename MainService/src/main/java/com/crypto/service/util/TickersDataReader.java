@@ -19,7 +19,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-public class TicketsDataReader {
+public class TickersDataReader
+{
 
   private final int PARTS_QUANTITY;
   // 2 THREADS is minimum for using PIPED STREAMS
@@ -28,7 +29,7 @@ public class TicketsDataReader {
   private final ExecutorService insert_executor;
   private final ExecutorService compression_executor;
 
-  private final Logger LOGGER = LoggerFactory.getLogger(TicketsDataReader.class);
+  private final Logger LOGGER = LoggerFactory.getLogger(TickersDataReader.class);
 
   private final String SOURCE_PATH;
 
@@ -36,7 +37,7 @@ public class TicketsDataReader {
 
   private final ClickHouseDAO clickHouseDAO;
 
-  public TicketsDataReader() {
+  public TickersDataReader() {
     String currentDate = getCurrentDate();
     try {
       Properties projectProperties = PropertiesLoader.loadProjectConfig();
@@ -89,10 +90,10 @@ public class TicketsDataReader {
         Lists.partition(tickerNames, tickerNames.size() / (PARTS_QUANTITY));
 
     // TODO: Remove truncation of both tables
-    clickHouseDAO.truncateTable(Tables.TICKETS_LOGS.getTableName());
-    clickHouseDAO.truncateTable(Tables.TICKETS_DATA.getTableName());
+    clickHouseDAO.truncateTable(Tables.TICKERS_LOGS.getTableName());
+    clickHouseDAO.truncateTable(Tables.TICKERS_DATA.getTableName());
 
-    for (List<String> ticketPartition : tickerParts) {
+    for (List<String> tickerPartition : tickerParts) {
       insert_executor.execute(
           () -> {
             AtomicBoolean compressionTaskRunning = new AtomicBoolean(false);
@@ -114,14 +115,14 @@ public class TicketsDataReader {
                 CompressionHandler handler =
                     new CompressionHandler(pout, compressionTaskRunning, stopCompressionCommand);
 
-                compression_executor.execute(() -> handler.compressFilesWithGZIP(ticketPartition));
+                compression_executor.execute(() -> handler.compressFilesWithGZIP(tickerPartition));
 
                 clickHouseDAO.insertFromCompressedFileStream(
-                    pin, Tables.TICKETS_DATA.getTableName());
+                    pin, Tables.TICKERS_DATA.getTableName());
                 insertSuccessful.set(true);
                 break;
               } catch (Exception e) {
-                LOGGER.error("FAILED TO INSERT TICKETS DATA - ", e);
+                LOGGER.error("FAILED TO INSERT TICKERS DATA - ", e);
 
                 stopCompressionCommand.set(true);
 
@@ -134,10 +135,10 @@ public class TicketsDataReader {
               }
             }
             if (!insertSuccessful.get()) {
-              System.err.println(this.getClass().getName() + " LOST TICKETS: " );
+              System.err.println(this.getClass().getName() + " LOST TICKERS: " );
             }
           });
-      //  TODO: After insertion check that COUNT(tickets_logs).equals(partitions) - insert
+      //  TODO: After insertion check that COUNT(tickers_logs).equals(partitions) - insert
       //   successful (not reliable)
     }
   }
