@@ -2,8 +2,6 @@ package com.crypto.service.util;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -14,8 +12,6 @@ import java.util.zip.GZIPInputStream;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class CompressionHandlerTest {
-
-  private final Logger LOGGER = LoggerFactory.getLogger("TestLogger");
 
   CompressionHandler compressionHandler;
 

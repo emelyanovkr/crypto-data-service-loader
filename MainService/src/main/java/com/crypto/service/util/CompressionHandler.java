@@ -6,7 +6,6 @@ import org.slf4j.MDC;
 
 import java.io.*;
 import java.text.DecimalFormat;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.GZIPOutputStream;
