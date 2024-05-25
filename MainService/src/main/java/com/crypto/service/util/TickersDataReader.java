@@ -19,23 +19,22 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-public class TickersDataReader
-{
+public class TickersDataReader {
 
-  private final int PARTS_QUANTITY;
+  protected final int PARTS_QUANTITY;
   // 2 THREADS is minimum for using PIPED STREAMS
-  private final int THREADS_COUNT;
+  protected final int THREADS_COUNT;
 
-  private final ExecutorService insert_executor;
-  private final ExecutorService compression_executor;
+  protected final ExecutorService insert_executor;
+  protected final ExecutorService compression_executor;
 
-  private final Logger LOGGER = LoggerFactory.getLogger(TickersDataReader.class);
+  protected final Logger LOGGER = LoggerFactory.getLogger(TickersDataReader.class);
 
-  private final String SOURCE_PATH;
+  protected final String SOURCE_PATH;
 
-  private final int FLUSH_RETRY_COUNT;
+  protected final int FLUSH_RETRY_COUNT;
 
-  private final ClickHouseDAO clickHouseDAO;
+  protected final ClickHouseDAO clickHouseDAO;
 
   public TickersDataReader() {
     String currentDate = getCurrentDate();
@@ -60,14 +59,14 @@ public class TickersDataReader
     clickHouseDAO = new ClickHouseDAO();
   }
 
-  private String getCurrentDate() {
+  protected String getCurrentDate() {
     LocalDate currentDate = LocalDate.now();
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     return currentDate.format(formatter);
   }
 
-  private List<String> getFilesInDirectory() {
+  protected List<String> getFilesInDirectory() {
     File searchDirectory = new File(SOURCE_PATH);
     List<String> directories;
 
@@ -113,7 +112,8 @@ public class TickersDataReader
                 compressionTaskRunning.set(true);
 
                 CompressionHandler handler =
-                    new CompressionHandler(pout, compressionTaskRunning, stopCompressionCommand);
+                    CompressionHandler.createCompressionHandler(
+                        pout, compressionTaskRunning, stopCompressionCommand);
 
                 compression_executor.execute(() -> handler.compressFilesWithGZIP(tickerPartition));
 
@@ -135,7 +135,7 @@ public class TickersDataReader
               }
             }
             if (!insertSuccessful.get()) {
-              System.err.println(this.getClass().getName() + " LOST TICKERS: " );
+              System.err.println(this.getClass().getName() + " LOST TICKERS: ");
             }
           });
       //  TODO: After insertion check that COUNT(tickers_logs).equals(partitions) - insert

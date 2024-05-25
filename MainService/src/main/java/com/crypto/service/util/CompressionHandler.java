@@ -18,11 +18,16 @@ public class CompressionHandler {
   private final AtomicBoolean taskRunningStatus;
   private final AtomicBoolean stopCommand;
 
-  public CompressionHandler(
+  protected CompressionHandler(
       PipedOutputStream pout, AtomicBoolean taskRunningStatus, AtomicBoolean stopCommand) {
     this.pout = pout;
     this.taskRunningStatus = taskRunningStatus;
     this.stopCommand = stopCommand;
+  }
+
+  public static CompressionHandler createCompressionHandler(
+      PipedOutputStream pout, AtomicBoolean taskRunningStatus, AtomicBoolean stopCommand) {
+    return new CompressionHandler(pout, taskRunningStatus, stopCommand);
   }
 
   public void compressFilesWithGZIP(List<String> tickersPath) {
