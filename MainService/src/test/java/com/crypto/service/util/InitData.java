@@ -6,7 +6,6 @@ import java.lang.reflect.Field;
 
 public class InitData {
   public static void setPropertiesField(String propertiesName) {
-
     Field RESOURCE_NAME_TO_TEST_FIELD =
         ReflectionUtils.findFields(
                 PropertiesLoader.class,

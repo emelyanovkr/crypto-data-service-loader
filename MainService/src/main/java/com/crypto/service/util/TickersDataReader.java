@@ -20,10 +20,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class TickersDataReader {
-
   protected final int PARTS_QUANTITY;
   // 2 THREADS is minimum for using PIPED STREAMS
   protected final int THREADS_COUNT;
+  protected final int MAX_FLUSH_ATTEMPTS;
 
   protected final ExecutorService insert_executor;
   protected final ExecutorService compression_executor;
@@ -31,10 +31,7 @@ public class TickersDataReader {
   protected final Logger LOGGER = LoggerFactory.getLogger(TickersDataReader.class);
 
   protected final String SOURCE_PATH;
-
-  protected final int FLUSH_RETRY_COUNT;
-
-  protected final ClickHouseDAO clickHouseDAO;
+  protected ClickHouseDAO clickHouseDAO;
 
   public TickersDataReader() {
     String currentDate = getCurrentDate();
@@ -43,13 +40,13 @@ public class TickersDataReader {
 
       PARTS_QUANTITY =
           Integer.parseInt(projectProperties.getProperty("data_divided_parts_quantity"));
-      THREADS_COUNT = PARTS_QUANTITY / 2;
+      THREADS_COUNT = Math.max(PARTS_QUANTITY / 2, 2);
 
       SOURCE_PATH = projectProperties.getProperty("DATA_PATH") + "/" + currentDate;
-      FLUSH_RETRY_COUNT = Integer.parseInt(projectProperties.getProperty("flush_retry_count"));
+      MAX_FLUSH_ATTEMPTS = Integer.parseInt(projectProperties.getProperty("max_flush_attempts"));
 
     } catch (IllegalArgumentException e) {
-      LOGGER.error("FAILED TO PARAMETERS - ", e);
+      LOGGER.error("FAILED TO READ PARAMETERS - ", e);
       throw new RuntimeException(e);
     }
 
@@ -73,7 +70,7 @@ public class TickersDataReader {
     try {
       directories = List.of(Objects.requireNonNull(searchDirectory.list()));
     } catch (Exception e) {
-      LOGGER.error("FAILED SEARCH DIRECTORY - ", e);
+      LOGGER.error("FAILED TO SEARCH DIRECTORY - ", e);
       throw new RuntimeException();
     }
 
@@ -86,60 +83,78 @@ public class TickersDataReader {
     List<String> tickerNames = getFilesInDirectory();
 
     List<List<String>> tickerParts =
-        Lists.partition(tickerNames, tickerNames.size() / (PARTS_QUANTITY));
+        Lists.partition(
+            tickerNames,
+            tickerNames.size() < (PARTS_QUANTITY) ? 1 : tickerNames.size() / PARTS_QUANTITY);
 
     // TODO: Remove truncation of both tables
     clickHouseDAO.truncateTable(Tables.TICKERS_LOGS.getTableName());
     clickHouseDAO.truncateTable(Tables.TICKERS_DATA.getTableName());
 
     for (List<String> tickerPartition : tickerParts) {
-      insert_executor.execute(
-          () -> {
-            AtomicBoolean compressionTaskRunning = new AtomicBoolean(false);
-            AtomicBoolean insertSuccessful = new AtomicBoolean(false);
-            for (int i = 0; i < FLUSH_RETRY_COUNT; i++) {
-              AtomicBoolean stopCompressionCommand = new AtomicBoolean(false);
+      insert_executor.execute(new TickersInsertTask(tickerPartition));
+    }
 
-              PipedOutputStream pout = new PipedOutputStream();
-              PipedInputStream pin = new PipedInputStream();
+    //  TODO: After insertion check that COUNT(tickers_logs).equals(partitions) - insert
+    //   successful (not reliable)
+  }
 
-              try {
-                pin.connect(pout);
+  protected class TickersInsertTask implements Runnable {
+    protected final List<String> tickerPartition;
+    protected CompressionHandler compressionHandler;
 
-                // spinning lock
-                while (compressionTaskRunning.get()) {}
+    public TickersInsertTask(List<String> tickerPartition) {
+      this.tickerPartition = tickerPartition;
+    }
 
-                compressionTaskRunning.set(true);
+    @Override
+    public void run() {
+      startInsertTickers();
+    }
 
-                CompressionHandler handler =
-                    CompressionHandler.createCompressionHandler(
-                        pout, compressionTaskRunning, stopCompressionCommand);
+    protected void startInsertTickers() {
+      AtomicBoolean compressionTaskRunning = new AtomicBoolean(false);
+      AtomicBoolean insertSuccessful = new AtomicBoolean(false);
+      for (int i = 0; i < MAX_FLUSH_ATTEMPTS; i++) {
+        AtomicBoolean stopCompressionCommand = new AtomicBoolean(false);
 
-                compression_executor.execute(() -> handler.compressFilesWithGZIP(tickerPartition));
+        PipedOutputStream pout = new PipedOutputStream();
+        PipedInputStream pin = new PipedInputStream();
 
-                clickHouseDAO.insertFromCompressedFileStream(
-                    pin, Tables.TICKERS_DATA.getTableName());
-                insertSuccessful.set(true);
-                break;
-              } catch (Exception e) {
-                LOGGER.error("FAILED TO INSERT TICKERS DATA - ", e);
+        try {
+          pin.connect(pout);
 
-                stopCompressionCommand.set(true);
+          // spinning lock
+          while (compressionTaskRunning.get()) {}
 
-                try {
-                  pin.close();
-                  Thread.sleep(500);
-                } catch (InterruptedException | IOException ex) {
-                  throw new RuntimeException(ex);
-                }
-              }
-            }
-            if (!insertSuccessful.get()) {
-              System.err.println(this.getClass().getName() + " LOST TICKERS: ");
-            }
-          });
-      //  TODO: After insertion check that COUNT(tickers_logs).equals(partitions) - insert
-      //   successful (not reliable)
+          compressionTaskRunning.set(true);
+
+          compressionHandler =
+              CompressionHandler.createCompressionHandler(
+                  pout, compressionTaskRunning, stopCompressionCommand);
+
+          compression_executor.execute(
+              () -> compressionHandler.compressFilesWithGZIP(tickerPartition));
+
+          clickHouseDAO.insertFromCompressedFileStream(pin, Tables.TICKERS_DATA.getTableName());
+          insertSuccessful.set(true);
+          break;
+        } catch (Exception e) {
+          LOGGER.error("FAILED TO INSERT TICKERS DATA - ", e);
+
+          stopCompressionCommand.set(true);
+
+          try {
+            pin.close();
+            Thread.sleep(500);
+          } catch (InterruptedException | IOException ex) {
+            throw new RuntimeException(ex);
+          }
+        }
+      }
+      if (!insertSuccessful.get()) {
+        System.err.println(this.getClass().getName() + " LOST TICKERS: ");
+      }
     }
   }
 }

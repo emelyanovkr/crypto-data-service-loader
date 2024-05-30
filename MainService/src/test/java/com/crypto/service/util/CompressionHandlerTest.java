@@ -12,14 +12,12 @@ import java.util.zip.GZIPInputStream;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class CompressionHandlerTest {
-
   CompressionHandler compressionHandler;
 
   PipedInputStream pin;
   PipedOutputStream pout;
 
   AtomicBoolean taskRunningStatus = new AtomicBoolean(false);
-
   AtomicBoolean stopCommand = new AtomicBoolean(false);
 
   @BeforeEach

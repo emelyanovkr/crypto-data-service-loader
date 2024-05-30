@@ -6,7 +6,6 @@ import com.clickhouse.client.ClickHouseProtocol;
 import com.clickhouse.client.config.ClickHouseClientOption;
 import com.clickhouse.client.http.config.ClickHouseHttpOption;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class ConnectionHandler {
 
@@ -17,7 +16,7 @@ public class ConnectionHandler {
 
   public static ClickHouseNode initClickHouseConnection(Properties properties) {
     String host = properties.getProperty("HOST");
-    int port = Integer.valueOf(properties.getProperty("PORT"));
+    int port = Integer.parseInt(properties.getProperty("PORT"));
     String database = properties.getProperty("DATABASE");
     String username = properties.getProperty("USERNAME");
     String password = properties.getProperty("PASSWORD");
