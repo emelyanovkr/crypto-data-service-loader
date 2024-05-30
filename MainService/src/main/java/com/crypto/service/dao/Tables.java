@@ -1,8 +1,8 @@
 package com.crypto.service.dao;
 
 public enum Tables {
-  TICKETS_DATA("tickets_data_db.tickets_data"),
-  TICKETS_LOGS("tickets_data_db.tickets_logs");
+  TICKERS_DATA("tickers_data_db.tickers_data"),
+  TICKERS_LOGS("tickers_data_db.tickers_logs");
 
   private final String tableName;
 

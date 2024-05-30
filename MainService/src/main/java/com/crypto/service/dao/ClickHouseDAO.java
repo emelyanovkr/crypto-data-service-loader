@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 
 public class ClickHouseDAO {
-
   private final ClickHouseNode server;
   private final ClickHouseClient client;
 
@@ -22,17 +21,17 @@ public class ClickHouseDAO {
     this.client = ClickHouseClient.newInstance(server.getProtocol());
   }
 
+  // TODO ADD TABLE FOR INSERT STATUS
+
   public void insertFromCompressedFileStream(PipedInputStream pin, String tableName)
       throws ClickHouseException {
-
     try (ClickHouseResponse response =
         client
             .write(server)
             .query("INSERT INTO " + tableName)
             .data(
                 ClickHousePassThruStream.of(pin, ClickHouseCompression.GZIP, ClickHouseFormat.CSV))
-            .executeAndWait()) {
-    }
+            .executeAndWait()) {}
     /*Possible to measure query execution time
     finally {
       LOGGER.info("Query execution time - {} sec.", (System.currentTimeMillis() - start) / 1000);

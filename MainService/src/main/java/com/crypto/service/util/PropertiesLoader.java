@@ -7,14 +7,14 @@ import java.io.InputStream;
 import java.util.Properties;
 
 public class PropertiesLoader {
-  private static final String RESOURCE_NAME = "config.properties";
+  private static String RESOURCE_NAME = "config.properties";
 
   public static Properties loadProjectConfig() {
     Properties properties = new Properties();
     try (InputStream input = Resources.getResource(RESOURCE_NAME).openStream()) {
       properties.load(input);
-    } catch (IOException e) {
-      System.err.println(PropertiesLoader.class.getName() + "FAILED TO LOAD CONFIGURATION" + e.getMessage());
+    } catch (IOException | IllegalArgumentException e) {
+      System.err.println(PropertiesLoader.class.getName() + " FAILED TO LOAD CONFIGURATION " + e.getMessage());
       throw new RuntimeException(e);
     }
     return properties;

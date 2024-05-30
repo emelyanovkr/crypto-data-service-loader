@@ -8,45 +8,48 @@ import java.io.*;
 import java.text.DecimalFormat;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPOutputStream;
 
 public class CompressionHandler {
-  private final int BUFFER_SIZE = 131072;
-  private final PipedOutputStream pout;
-  private final Logger LOGGER = LoggerFactory.getLogger(CompressionHandler.class);
-  private static final AtomicInteger counter = new AtomicInteger(0);
+  protected final int BUFFER_SIZE = 131072;
+  protected final PipedOutputStream pout;
+  protected final Logger LOGGER = LoggerFactory.getLogger(CompressionHandler.class);
 
-  private final AtomicBoolean taskRunningStatus;
-  private final AtomicBoolean stopCommand;
+  protected final AtomicBoolean taskRunningStatus;
+  protected final AtomicBoolean stopCommand;
 
-  public CompressionHandler(
+  protected CompressionHandler(
       PipedOutputStream pout, AtomicBoolean taskRunningStatus, AtomicBoolean stopCommand) {
     this.pout = pout;
     this.taskRunningStatus = taskRunningStatus;
     this.stopCommand = stopCommand;
   }
 
-  public void compressFilesWithGZIP(List<String> ticketsPath) {
+  public static CompressionHandler createCompressionHandler(
+      PipedOutputStream pout, AtomicBoolean taskRunningStatus, AtomicBoolean stopCommand) {
+    return new CompressionHandler(pout, taskRunningStatus, stopCommand);
+  }
+
+  public void compressFilesWithGZIP(List<String> tickersPath) {
+    if (tickersPath == null || tickersPath.isEmpty()) {
+      return;
+    }
 
     try {
       long start = System.currentTimeMillis();
-      double totalSize = 0;
+      double totalDataCompressedSize = 0;
 
       try (GZIPOutputStream gzOut = new GZIPOutputStream(pout)) {
-        for (String file : ticketsPath) {
-
+        for (String file : tickersPath) {
           try (InputStream fin = new FileInputStream(file)) {
             final byte[] buffer = new byte[BUFFER_SIZE];
             int n;
             while ((n = fin.read(buffer)) != -1) {
-
               if (stopCommand.get()) {
                 return;
               }
-
               gzOut.write(buffer, 0, n);
-              totalSize += n;
+              totalDataCompressedSize += n;
             }
           } catch (IOException e) {
             LOGGER.error("READING COMPRESSION ERROR - ", e);
@@ -63,11 +66,11 @@ public class CompressionHandler {
       DecimalFormat df = new DecimalFormat("0.00");
 
       double totalTime = (double) (System.currentTimeMillis() - start) / 1000;
-      totalSize /= (1024 * 1024);
+      totalDataCompressedSize /= (1024 * 1024);
 
       String totalTimeStr = df.format(totalTime);
-      String totalSizeStr = df.format(totalSize);
-      String compressionRate = df.format(totalSize / totalTime);
+      String totalSizeStr = df.format(totalDataCompressedSize);
+      String compressionRate = df.format(totalDataCompressedSize / totalTime);
 
       MDC.put("data_size", totalSizeStr);
       MDC.put("compression_rate", compressionRate);
