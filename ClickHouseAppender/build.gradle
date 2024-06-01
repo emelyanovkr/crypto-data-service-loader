@@ -3,7 +3,7 @@ plugins {
     id 'application'
 }
 
-group = 'com.crypto.service'
+group = 'com.clickhouse.appender'
 version = '1.0-SNAPSHOT'
 
 repositories {
@@ -31,4 +31,19 @@ dependencies {
     implementation 'org.apache.logging.log4j:log4j-layout-template-json:2.23.1'
 
     annotationProcessor 'org.apache.logging.log4j:log4j-core:2.23.1'
+    implementation 'org.lz4:lz4-java:1.8.0'
+
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
+
+    testImplementation(platform('org.junit:junit-bom:5.11.0-M1'))
+    testImplementation('org.junit.jupiter:junit-jupiter')
+    testRuntimeOnly('org.junit.platform:junit-platform-launcher')
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.11.0-M1'
+
+    testImplementation 'org.apache.logging.log4j:log4j-core-test:2.23.1'
+}
+
+test {
+    useJUnitPlatform()
 }
