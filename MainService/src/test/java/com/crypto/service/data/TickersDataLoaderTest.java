@@ -1,8 +1,11 @@
-package com.crypto.service.util;
+package com.crypto.service.data;
 
 import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseNode;
 import com.crypto.service.dao.ClickHouseDAO;
+import com.crypto.service.util.CompressionHandler;
+import com.crypto.service.util.ConnectionHandler;
+import com.crypto.service.util.InitData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,12 +22,13 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class TickersDataReaderTest {
+public class TickersDataLoaderTest
+{
   @Mock ClickHouseDAO clickHouseDAO;
   @Mock ClickHouseNode clickHouseNode;
 
-  TickersDataReader spyTickers;
-  TickersDataReader.TickersInsertTask spyInsertTask;
+  TickersDataLoader spyTickers;
+  TickersDataLoader.TickersInsertTask spyInsertTask;
 
   List<String> TEST_DATA = new ArrayList<>(List.of("TEST_ONE", "TEST_TWO"));
 
@@ -36,15 +40,15 @@ public class TickersDataReaderTest {
       mockedConnection.when(ConnectionHandler::initClickHouseConnection).thenReturn(clickHouseNode);
     }
 
-    prepareReadExecutorForTesting();
+    prepareUploadTickersDataForTesting();
   }
 
-  public void prepareReadExecutorForTesting() throws ClickHouseException {
+  public void prepareUploadTickersDataForTesting() throws ClickHouseException {
     InitData.setPropertiesField("config_test.properties");
-    TickersDataReader tickersDataReader = new TickersDataReader();
-    spyTickers = spy(tickersDataReader);
+    TickersDataLoader tickersDataLoader = new TickersDataLoader();
+    spyTickers = spy(tickersDataLoader);
 
-    TickersDataReader.TickersInsertTask tickersInsertTask =
+    TickersDataLoader.TickersInsertTask tickersInsertTask =
         spyTickers.new TickersInsertTask(TEST_DATA);
     spyInsertTask = spy(tickersInsertTask);
 
@@ -52,7 +56,7 @@ public class TickersDataReaderTest {
 
     doThrow(new RuntimeException("TEST_EXCEPTION #1"))
         .when(spyTickers.clickHouseDAO)
-        .insertFromCompressedFileStream(any(), anyString());
+        .insertTickersData(any(), anyString());
   }
 
   @Test
@@ -76,6 +80,6 @@ public class TickersDataReaderTest {
     spyInsertTask.startInsertTickers();
 
     // should be called only 2 times, because MAX_FLUSH_ATTEMPTS = 2 IN .PROPERTIES FILE
-    verify(spyTickers.clickHouseDAO, times(2)).insertFromCompressedFileStream(any(), anyString());
+    verify(spyTickers.clickHouseDAO, times(2)).insertTickersData(any(), anyString());
   }
 }

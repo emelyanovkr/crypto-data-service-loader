@@ -1,7 +1,10 @@
-package com.crypto.service.util;
+package com.crypto.service.data;
 
+import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
+import com.crypto.service.util.CompressionHandler;
+import com.crypto.service.util.PropertiesLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
@@ -11,15 +14,17 @@ import java.io.*;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-public class TickersDataReader {
+public class TickersDataLoader implements Runnable {
   protected final int PARTS_QUANTITY;
   // 2 THREADS is minimum for using PIPED STREAMS
   protected final int THREADS_COUNT;
@@ -28,12 +33,14 @@ public class TickersDataReader {
   protected final ExecutorService insert_executor;
   protected final ExecutorService compression_executor;
 
-  protected final Logger LOGGER = LoggerFactory.getLogger(TickersDataReader.class);
+  protected final Logger LOGGER = LoggerFactory.getLogger(TickersDataLoader.class);
 
   protected final String SOURCE_PATH;
   protected ClickHouseDAO clickHouseDAO;
 
-  public TickersDataReader() {
+  protected AtomicReference<List<TickerFile>> tickerFiles;
+
+  public TickersDataLoader() {
     String currentDate = getCurrentDate();
     try {
       Properties projectProperties = PropertiesLoader.loadProjectConfig();
@@ -54,6 +61,13 @@ public class TickersDataReader {
     compression_executor = Executors.newFixedThreadPool(THREADS_COUNT);
 
     clickHouseDAO = new ClickHouseDAO();
+    tickerFiles = new AtomicReference<>(new ArrayList<>());
+  }
+
+  @Override
+  public void run()
+  {
+    uploadTickersData();
   }
 
   protected String getCurrentDate() {
@@ -63,23 +77,45 @@ public class TickersDataReader {
     return currentDate.format(formatter);
   }
 
+  protected void fillTickerFileList(List<String> tickerNames) {
+    tickerFiles.set(
+        ImmutableList.copyOf(tickerNames).stream()
+            .map(fileName -> new TickerFile(fileName, TickerFile.FileStatus.NOT_LOADED))
+            .collect(Collectors.toList()));
+  }
+
   protected List<String> getFilesInDirectory() {
     File searchDirectory = new File(SOURCE_PATH);
-    List<String> directories;
+    List<String> tickerNames;
 
     try {
-      directories = List.of(Objects.requireNonNull(searchDirectory.list()));
+      tickerNames = List.of(Objects.requireNonNull(searchDirectory.list()));
     } catch (Exception e) {
       LOGGER.error("FAILED TO SEARCH DIRECTORY - ", e);
       throw new RuntimeException();
     }
 
-    return ImmutableList.copyOf(directories).stream()
+    fillTickerFileList(tickerNames);
+
+    return ImmutableList.copyOf(tickerNames).stream()
         .map(fileName -> Paths.get(SOURCE_PATH, fileName).toString())
         .collect(Collectors.toList());
   }
 
-  public void readExecutor() {
+  public void doNothing() {
+    try {
+      String dataToInsert =
+          tickerFiles.get().stream()
+              .map(tickerFile -> tickerFile.getFileName() + "\t" + tickerFile.getStatus())
+              .collect(Collectors.joining("\n"));
+
+      clickHouseDAO.insertTickerFilesInfo(dataToInsert, Tables.TICKER_FILES.getTableName());
+    } catch (ClickHouseException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public void uploadTickersData() {
     List<String> tickerNames = getFilesInDirectory();
 
     List<List<String>> tickerParts =
@@ -87,16 +123,10 @@ public class TickersDataReader {
             tickerNames,
             tickerNames.size() < (PARTS_QUANTITY) ? 1 : tickerNames.size() / PARTS_QUANTITY);
 
-    // TODO: Remove truncation of both tables
-    clickHouseDAO.truncateTable(Tables.TICKERS_LOGS.getTableName());
-    clickHouseDAO.truncateTable(Tables.TICKERS_DATA.getTableName());
-
-    for (List<String> tickerPartition : tickerParts) {
+    // TODO: TEMP
+    /*for (List<String> tickerPartition : tickerParts) {
       insert_executor.execute(new TickersInsertTask(tickerPartition));
-    }
-
-    //  TODO: After insertion check that COUNT(tickers_logs).equals(partitions) - insert
-    //   successful (not reliable)
+    }*/
   }
 
   protected class TickersInsertTask implements Runnable {
@@ -136,7 +166,7 @@ public class TickersDataReader {
           compression_executor.execute(
               () -> compressionHandler.compressFilesWithGZIP(tickerPartition));
 
-          clickHouseDAO.insertFromCompressedFileStream(pin, Tables.TICKERS_DATA.getTableName());
+          clickHouseDAO.insertTickersData(pin, Tables.TICKERS_DATA.getTableName());
           insertSuccessful.set(true);
           break;
         } catch (Exception e) {

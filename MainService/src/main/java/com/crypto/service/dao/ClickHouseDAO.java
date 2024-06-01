@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 
 public class ClickHouseDAO {
   private final ClickHouseNode server;
@@ -23,7 +24,7 @@ public class ClickHouseDAO {
 
   // TODO ADD TABLE FOR INSERT STATUS
 
-  public void insertFromCompressedFileStream(PipedInputStream pin, String tableName)
+  public void insertTickersData(PipedInputStream pin, String tableName)
       throws ClickHouseException {
     try (ClickHouseResponse response =
         client
@@ -36,6 +37,16 @@ public class ClickHouseDAO {
     finally {
       LOGGER.info("Query execution time - {} sec.", (System.currentTimeMillis() - start) / 1000);
     }*/
+  }
+
+  public void insertTickerFilesInfo(String data, String tableName)
+      throws ClickHouseException {
+    try (ClickHouseResponse response =
+        client
+            .write(server)
+            .query("INSERT INTO " + tableName)
+            .data(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)))
+            .executeAndWait()) {}
   }
 
   public void truncateTable(String tableName) {
