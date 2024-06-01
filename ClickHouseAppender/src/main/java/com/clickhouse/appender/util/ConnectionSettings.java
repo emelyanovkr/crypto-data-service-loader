@@ -11,9 +11,7 @@ import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 import org.apache.logging.log4j.core.config.plugins.validation.constraints.Required;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 
 @Plugin(
     name = "ConnectionSettings",
@@ -21,14 +19,14 @@ import java.io.InputStreamReader;
     elementType = "connectionSettings",
     printObject = true)
 public class ConnectionSettings {
-  public final String host;
-  public final int port;
-  public final String database;
-  public final String username;
-  public final String password;
-  public final String SSL;
-  public final String socketTimeout;
-  public final String customParams;
+  protected final String host;
+  protected final int port;
+  protected final String database;
+  protected final String username;
+  protected final String password;
+  protected final String SSL;
+  protected final String socketTimeout;
+  protected final String customParams;
 
   private ConnectionSettings(
       String host,
@@ -49,19 +47,19 @@ public class ConnectionSettings {
     this.customParams = customParams;
   }
 
-  public static ClickHouseNode initClickHouseConnection(ConnectionSettings connectionSettings) throws IOException {
-      return initClickHouseConnection(
-            connectionSettings.host,
-            connectionSettings.port,
-            connectionSettings.database,
-            connectionSettings.username,
-            connectionSettings.password,
-            connectionSettings.SSL,
-            connectionSettings.socketTimeout,
-            connectionSettings.customParams);
+  public ClickHouseNode initClickHouseConnection() throws IOException {
+    return initClickHouseConnection(
+        this.host,
+        this.port,
+        this.database,
+        this.username,
+        this.password,
+        this.SSL,
+        this.socketTimeout,
+        this.customParams);
   }
 
-  public static ClickHouseNode initClickHouseConnection(
+  public ClickHouseNode initClickHouseConnection(
       String host,
       int port,
       String database,
@@ -69,8 +67,7 @@ public class ConnectionSettings {
       String password,
       String SSL,
       String socketTimeout,
-      String customParams)
-      throws IOException {
+      String customParams) {
     return ClickHouseNode.builder()
         .host(host)
         .port(ClickHouseProtocol.HTTP, port)
@@ -83,7 +80,7 @@ public class ConnectionSettings {
   }
 
   @PluginFactory
-  public static ConnectionSettings createConnectionHandler(
+  public static ConnectionSettings createConnectionSettings(
       @PluginAttribute("HOST") @Required(message = "No host provided") String host,
       @PluginAttribute("PORT") @Required(message = "No port provided") int port,
       @PluginAttribute("DATABASE") @Required(message = "No db provided") String database,
@@ -94,36 +91,6 @@ public class ConnectionSettings {
       @PluginAttribute("CUSTOM_PARAMS") String customParams) {
 
     return new ConnectionSettings(
-        host,
-        port,
-        database,
-        username,
-        password,
-        SSL,
-        socketTimeout,
-        customParams);
-  }
-
-  public String testConnection() {
-    String curlQuery =
-      "curl --user "
-        + username
-        + ":"
-        + password
-        + " https://"
-        + host
-        + ":"
-        + port;
-
-    try
-    {
-      Process process = Runtime.getRuntime().exec(curlQuery.split(" "));
-
-      BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-      return reader.readLine();
-    } catch (IOException e)
-    {
-      throw new RuntimeException(e);
-    }
+        host, port, database, username, password, SSL, socketTimeout, customParams);
   }
 }
