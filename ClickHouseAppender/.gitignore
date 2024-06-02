@@ -17,3 +17,4 @@ build/
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+/src/test/resources/log4j2.xml

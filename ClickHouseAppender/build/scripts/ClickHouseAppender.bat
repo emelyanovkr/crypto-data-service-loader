@@ -68,7 +68,7 @@ goto fail
 :execute
 @rem Setup the command line
 
-set CLASSPATH=%APP_HOME%\lib\ClickHouseAppender-1.0-SNAPSHOT.jar;%APP_HOME%\lib\clickhouse-http-client-0.6.0-patch4.jar;%APP_HOME%\lib\clickhouse-jdbc-0.6.0-patch4.jar;%APP_HOME%\lib\httpclient5-5.3.1.jar;%APP_HOME%\lib\log4j-slf4j2-impl-2.23.1.jar;%APP_HOME%\lib\log4j-layout-template-json-2.23.1.jar;%APP_HOME%\lib\log4j-core-2.23.1.jar;%APP_HOME%\lib\log4j-api-2.23.1.jar;%APP_HOME%\lib\slf4j-api-2.0.12.jar;%APP_HOME%\lib\disruptor-4.0.0.jar;%APP_HOME%\lib\clickhouse-client-0.6.0-patch4.jar;%APP_HOME%\lib\clickhouse-data-0.6.0-patch4.jar;%APP_HOME%\lib\httpcore5-h2-5.2.4.jar;%APP_HOME%\lib\httpcore5-5.2.4.jar
+set CLASSPATH=%APP_HOME%\lib\ClickHouseAppender-1.0-SNAPSHOT.jar;%APP_HOME%\lib\clickhouse-http-client-0.6.0-patch4.jar;%APP_HOME%\lib\clickhouse-jdbc-0.6.0-patch4.jar;%APP_HOME%\lib\httpclient5-5.3.1.jar;%APP_HOME%\lib\log4j-slf4j2-impl-2.23.1.jar;%APP_HOME%\lib\log4j-layout-template-json-2.23.1.jar;%APP_HOME%\lib\log4j-core-2.23.1.jar;%APP_HOME%\lib\log4j-api-2.23.1.jar;%APP_HOME%\lib\slf4j-api-2.0.12.jar;%APP_HOME%\lib\disruptor-4.0.0.jar;%APP_HOME%\lib\lz4-java-1.8.0.jar;%APP_HOME%\lib\clickhouse-client-0.6.0-patch4.jar;%APP_HOME%\lib\clickhouse-data-0.6.0-patch4.jar;%APP_HOME%\lib\httpcore5-h2-5.2.4.jar;%APP_HOME%\lib\httpcore5-5.2.4.jar
 
 
 @rem Execute ClickHouseAppender
