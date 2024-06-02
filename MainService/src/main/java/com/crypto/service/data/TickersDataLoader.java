@@ -124,9 +124,9 @@ public class TickersDataLoader implements Runnable {
             tickerNames.size() < (PARTS_QUANTITY) ? 1 : tickerNames.size() / PARTS_QUANTITY);
 
     // TODO: TEMP
-    /*for (List<String> tickerPartition : tickerParts) {
+    for (List<String> tickerPartition : tickerParts) {
       insert_executor.execute(new TickersInsertTask(tickerPartition));
-    }*/
+    }
   }
 
   protected class TickersInsertTask implements Runnable {

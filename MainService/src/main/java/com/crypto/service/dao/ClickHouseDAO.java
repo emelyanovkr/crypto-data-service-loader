@@ -22,8 +22,6 @@ public class ClickHouseDAO {
     this.client = ClickHouseClient.newInstance(server.getProtocol());
   }
 
-  // TODO ADD TABLE FOR INSERT STATUS
-
   public void insertTickersData(PipedInputStream pin, String tableName)
       throws ClickHouseException {
     try (ClickHouseResponse response =
