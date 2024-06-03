@@ -8,7 +8,7 @@ public class TickerFile
   public enum FileStatus {
     NOT_LOADED,
     IN_PROGRESS,
-    FINISHED_LOADING,
+    FINISHED,
     ERROR;
   }
 

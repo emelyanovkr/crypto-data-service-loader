@@ -4,7 +4,7 @@ import com.crypto.service.data.TickersDataLoader;
 
 public class MainApplication {
   public static void main(String[] args) {
-    Thread uploadTickersData = new Thread(new TickersDataLoader(), "UPLOAD-TICKERS-DATA-THREAD");
-    uploadTickersData.start();
+    TickersDataLoader dataLoader = new TickersDataLoader();
+    dataLoader.uploadTickersData();
   }
 }

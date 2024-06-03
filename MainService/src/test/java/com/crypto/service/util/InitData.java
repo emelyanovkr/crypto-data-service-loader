@@ -11,7 +11,7 @@ public class InitData {
                 PropertiesLoader.class,
                 f -> f.getName().equals("RESOURCE_NAME"),
                 ReflectionUtils.HierarchyTraversalMode.TOP_DOWN)
-            .getFirst();
+            .get(0);
 
     RESOURCE_NAME_TO_TEST_FIELD.setAccessible(true);
     try {

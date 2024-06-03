@@ -14,6 +14,13 @@ application {
     mainClass = 'com.crypto.service.LoaderApplication'
 }
 
+compileJava {
+    options.compilerArgs << '-parameters'
+}
+compileTestJava {
+    options.compilerArgs << '-parameters'
+}
+
 configurations {
     testCompile
 }
@@ -23,8 +30,17 @@ sourceSets {
     test { java { srcDir 'src/test' } }
 }
 
+task printJavacCommand {
+    doLast {
+        tasks.withType(JavaCompile) { JavaCompile compileTask ->
+            println "javac ${compileTask.options.allCompilerArgs.join(' ')}"
+        }
+    }
+}
+
 dependencies {
-    implementation project(path: ':ClickHouseAppender', configuration: 'default')
+    implementation project(':ClickHouseAppender')
+    implementation project(':flower')
 
     implementation 'com.clickhouse:clickhouse-http-client:0.6.0-patch4'
     implementation 'com.clickhouse:clickhouse-jdbc:0.6.0-patch4'
