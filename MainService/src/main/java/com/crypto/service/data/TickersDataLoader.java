@@ -29,8 +29,6 @@ public class TickersDataLoader {
   // 2 THREADS is minimum for using PIPED STREAMS
   protected final int THREADS_COUNT;
   protected final int MAX_FLUSH_ATTEMPTS;
-  // TODO: name?
-  protected final int MAX_UPLOAD_RETRY_ATTEMPTS;
 
   protected final ExecutorService insert_executor;
   protected final ExecutorService compression_executor;
@@ -47,8 +45,6 @@ public class TickersDataLoader {
 
       SOURCE_PATH = projectProperties.getProperty("DATA_PATH") + "/" + currentDate;
       MAX_FLUSH_ATTEMPTS = Integer.parseInt(projectProperties.getProperty("max_flush_attempts"));
-      MAX_UPLOAD_RETRY_ATTEMPTS =
-          Integer.parseInt(projectProperties.getProperty("max_upload_retry_attempts"));
       PARTS_QUANTITY =
           Integer.parseInt(projectProperties.getProperty("data_divided_parts_quantity"));
       THREADS_COUNT = Math.max(PARTS_QUANTITY / 2, 2);
@@ -166,12 +162,6 @@ public class TickersDataLoader {
           } catch (InterruptedException | IOException ex) {
             throw new RuntimeException(ex);
           }
-        }
-      }
-      // TODO: TO THINK
-      if (!insertSuccessful.get()) {
-        for (int i = 0; i < MAX_UPLOAD_RETRY_ATTEMPTS; ++i) {
-          startInsertTickers();
         }
       }
       proceedInsertStatus(insertSuccessful);
