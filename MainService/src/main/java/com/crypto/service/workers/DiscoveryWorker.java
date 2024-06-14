@@ -42,10 +42,10 @@ public class DiscoveryWorker implements Runnable {
 
   @Override
   public void run() {
-    someMethod();
+    retrieveLocalFilesNames();
   }
 
-  protected void someMethod() {
+  protected void retrieveLocalFilesNames() {
     this.localTickerFiles = getFilesInDirectory(directory);
 
     try {
@@ -66,7 +66,7 @@ public class DiscoveryWorker implements Runnable {
     }
     try {
       clickHouseDAO.updateTickerFilesStatus(
-          TickerFile.getFileNames(localTickerFiles),
+          TickerFile.getSQLFileNames(localTickerFiles),
           TickerFile.FileStatus.DISCOVERED,
           Tables.TICKER_FILES.getTableName());
     } catch (ClickHouseException e) {

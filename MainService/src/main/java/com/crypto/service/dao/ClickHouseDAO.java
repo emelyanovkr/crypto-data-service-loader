@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 import java.util.stream.StreamSupport;
 
 public class ClickHouseDAO {
@@ -57,7 +58,7 @@ public class ClickHouseDAO {
         client
             .write(server)
             .query("ALTER TABLE :tableName UPDATE status = :status WHERE filename IN (:data)")
-            .params(List.of(tableName, status.toString(), data))
+            .params(List.of(tableName, status.getSQLStatus(), data))
             .executeAndWait()) {}
   }
 
@@ -74,6 +75,32 @@ public class ClickHouseDAO {
       List<String> tickerNames = new ArrayList<>();
       for (ClickHouseRecord record : records) {
         tickerNames.add(record.iterator().next().asString());
+      }
+      return tickerNames;
+    }
+  }
+
+  public List<TickerFile> selectTickerFilesNamesOnStatus(
+      String tableName, TickerFile.FileStatus... statuses) throws ClickHouseException {
+    StringJoiner joiner = new StringJoiner(",");
+
+    for (TickerFile.FileStatus status : statuses) {
+      joiner.add(status.getSQLStatus());
+    }
+
+    try (ClickHouseResponse response =
+        client
+            .read(server)
+            .query("SELECT * FROM :tableName WHERE status IN (:data)")
+            .params(List.of(tableName, joiner.toString()))
+            .executeAndWait()) {
+
+      // TODO: REFACTOR
+      Iterable<ClickHouseRecord> records = response.records();
+      List<TickerFile> tickerNames = new ArrayList<>();
+      for (ClickHouseRecord record : records) {
+        String[] data = record.iterator().next().asString().split("\\t");
+        tickerNames.add(new TickerFile(data[0], TickerFile.FileStatus.valueOf(data[1])));
       }
       return tickerNames;
     }
