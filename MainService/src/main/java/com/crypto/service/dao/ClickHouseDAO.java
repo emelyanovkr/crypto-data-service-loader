@@ -4,12 +4,18 @@ import com.clickhouse.client.*;
 import com.clickhouse.data.ClickHouseCompression;
 import com.clickhouse.data.ClickHouseFormat;
 import com.clickhouse.data.ClickHousePassThruStream;
+import com.clickhouse.data.ClickHouseRecord;
+import com.crypto.service.data.TickerFile;
 import com.crypto.service.util.ConnectionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.StreamSupport;
 
 public class ClickHouseDAO {
   private final ClickHouseNode server;
@@ -22,8 +28,7 @@ public class ClickHouseDAO {
     this.client = ClickHouseClient.newInstance(server.getProtocol());
   }
 
-  public void insertTickersData(PipedInputStream pin, String tableName)
-      throws ClickHouseException {
+  public void insertTickersData(PipedInputStream pin, String tableName) throws ClickHouseException {
     try (ClickHouseResponse response =
         client
             .write(server)
@@ -37,14 +42,41 @@ public class ClickHouseDAO {
     }*/
   }
 
-  public void insertTickerFilesInfo(String data, String tableName)
-      throws ClickHouseException {
+  public void insertTickerFilesInfo(String data, String tableName) throws ClickHouseException {
     try (ClickHouseResponse response =
         client
             .write(server)
             .query("INSERT INTO " + tableName)
             .data(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)))
             .executeAndWait()) {}
+  }
+
+  public void updateTickerFilesStatus(String data, TickerFile.FileStatus status, String tableName)
+      throws ClickHouseException {
+    try (ClickHouseResponse response =
+        client
+            .write(server)
+            .query("ALTER TABLE :tableName UPDATE status = :status WHERE filename IN (:data)")
+            .params(List.of(tableName, status.toString(), data))
+            .executeAndWait()) {}
+  }
+
+  public List<String> selectTickerFilesNames(String tableName) throws ClickHouseException {
+    try (ClickHouseResponse response =
+        client
+            .read(server)
+            .query("SELECT filename FROM :tableName")
+            .params(tableName)
+            .executeAndWait()) {
+
+      // TODO: REFACTOR
+      Iterable<ClickHouseRecord> records = response.records();
+      List<String> tickerNames = new ArrayList<>();
+      for (ClickHouseRecord record : records) {
+        tickerNames.add(record.iterator().next().asString());
+      }
+      return tickerNames;
+    }
   }
 
   public void truncateTable(String tableName) {

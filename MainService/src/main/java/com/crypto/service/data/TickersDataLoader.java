@@ -14,14 +14,10 @@ import java.io.*;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class TickersDataLoader {
@@ -67,8 +63,8 @@ public class TickersDataLoader {
     return currentDate.format(formatter);
   }
 
-  protected List<String> getFilesInDirectory() {
-    File searchDirectory = new File(SOURCE_PATH);
+  protected List<String> getFilesInDirectory(String directory) {
+    File searchDirectory = new File(directory);
     List<String> tickerNames;
 
     try {
@@ -79,12 +75,12 @@ public class TickersDataLoader {
     }
 
     return ImmutableList.copyOf(tickerNames).stream()
-        .map(fileName -> Paths.get(SOURCE_PATH, fileName).toString())
+        .map(fileName -> Paths.get(directory, fileName).toString())
         .collect(Collectors.toList());
   }
 
   public void uploadTickersData() {
-    List<String> tickerNames = getFilesInDirectory();
+    List<String> tickerNames = getFilesInDirectory(SOURCE_PATH);
 
     List<List<String>> tickerParts =
         Lists.partition(
@@ -99,11 +95,12 @@ public class TickersDataLoader {
   protected class TickersInsertTask implements Runnable {
     protected final List<String> tickerPartition;
     protected CompressionHandler compressionHandler;
-    protected List<TickerFile> tickerFiles;
+    protected Map<String, TickerFile> tickerFilesMap;
 
     public TickersInsertTask(List<String> tickerPartition) {
       this.tickerPartition = tickerPartition;
-      this.tickerFiles = new ArrayList<>();
+      this.tickerFilesMap = new HashMap<>();
+      fillTickerFileList(tickerPartition);
     }
 
     @Override
@@ -112,19 +109,18 @@ public class TickersDataLoader {
     }
 
     protected void fillTickerFileList(List<String> tickerNames) {
-      tickerFiles =
+      tickerFilesMap =
           ImmutableList.copyOf(tickerNames).stream()
-              .map(
-                  fileName ->
-                      new TickerFile(
-                          fileName.substring(fileName.lastIndexOf('\\') + 1),
-                          TickerFile.FileStatus.NOT_LOADED))
-              .collect(Collectors.toList());
+              .collect(
+                  Collectors.toMap(
+                      filePath -> filePath,
+                      filePath ->
+                          new TickerFile(
+                              filePath.substring(filePath.lastIndexOf('\\') + 1),
+                              TickerFile.FileStatus.NOT_LOADED)));
     }
 
     protected void startInsertTickers() {
-      fillTickerFileList(tickerPartition);
-
       AtomicBoolean compressionTaskRunning = new AtomicBoolean(false);
       AtomicBoolean insertSuccessful = new AtomicBoolean(false);
       for (int i = 0; i < MAX_FLUSH_ATTEMPTS; i++) {
@@ -145,9 +141,20 @@ public class TickersDataLoader {
               CompressionHandler.createCompressionHandler(
                   pout, compressionTaskRunning, stopCompressionCommand);
 
-          compression_executor.execute(
-              () -> compressionHandler.compressFilesWithGZIP(tickerPartition));
+          //TODO: UPDATE статусы для всех файлов в IN_PROGRESS
 
+          // TODO: передавать структуру с tickerFiles, для каждого файла я установлю соответствующий
+          // статус
+          compression_executor.execute(
+              () ->
+                  compressionHandler.compressFilesWithGZIP(
+                      tickerPartition,
+                      (fileStatus, filePath) -> {
+                        tickerFilesMap.get(filePath).setStatus(fileStatus);
+                        return null;
+                      }));
+
+          // TODO: проверить, вставляются ли данные в середине работы программы, в случае если вся пачка упадёт
           clickHouseDAO.insertTickersData(pin, Tables.TICKERS_DATA.getTableName());
           insertSuccessful.set(true);
           break;
@@ -168,17 +175,25 @@ public class TickersDataLoader {
     }
 
     protected void proceedInsertStatus(AtomicBoolean insertSuccessful) {
+      /*
+        проверить, что статус != error ->
+      */
+
       if (!insertSuccessful.get()) {
-        tickerFiles.forEach(tickerFile -> tickerFile.status = TickerFile.FileStatus.ERROR);
+        tickerFilesMap
+            .values()
+            .forEach(
+                tickerFile -> {
+                  if (tickerFile.status != TickerFile.FileStatus.FINISHED)
+                    tickerFile.status = TickerFile.FileStatus.ERROR;
+                });
         System.err.println(this.getClass().getName() + " LOST TICKERS: ");
-      } else {
-        tickerFiles.forEach(tickerFile -> tickerFile.status = TickerFile.FileStatus.FINISHED);
       }
+
       try {
-        String dataToInsert =
-            tickerFiles.stream()
-                .map(tickerFile -> tickerFile.getFileName() + "\t" + tickerFile.getStatus())
-                .collect(Collectors.joining("\n"));
+        String dataToInsert = TickerFile.formDataToInsert(tickerFilesMap.values());
+
+        // TODO: UPDATE STATUS IN DB instead of inserting
         clickHouseDAO.insertTickerFilesInfo(dataToInsert, Tables.TICKER_FILES.getTableName());
       } catch (ClickHouseException e) {
         LOGGER.error("FAILED TO INSERT TICKERS FILES STATUS - ", e);

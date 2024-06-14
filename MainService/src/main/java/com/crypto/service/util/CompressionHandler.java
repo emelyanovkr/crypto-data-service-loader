@@ -1,5 +1,6 @@
 package com.crypto.service.util;
 
+import com.crypto.service.data.TickerFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -8,6 +9,8 @@ import java.io.*;
 import java.text.DecimalFormat;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.zip.GZIPOutputStream;
 
 public class CompressionHandler {
@@ -30,7 +33,8 @@ public class CompressionHandler {
     return new CompressionHandler(pout, taskRunningStatus, stopCommand);
   }
 
-  public void compressFilesWithGZIP(List<String> tickersPath) {
+  public void compressFilesWithGZIP(
+      List<String> tickersPath, BiFunction<TickerFile.FileStatus, String, Void> updateStatus) {
     if (tickersPath == null || tickersPath.isEmpty()) {
       return;
     }
@@ -51,7 +55,9 @@ public class CompressionHandler {
               gzOut.write(buffer, 0, n);
               totalDataCompressedSize += n;
             }
+            updateStatus.apply(TickerFile.FileStatus.FINISHED, file);
           } catch (IOException e) {
+            
             LOGGER.error("READING COMPRESSION ERROR - ", e);
             throw new RuntimeException(e);
           }
