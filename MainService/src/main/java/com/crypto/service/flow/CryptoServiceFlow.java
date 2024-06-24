@@ -72,11 +72,11 @@ public class CryptoServiceFlow {
         .collect(Collectors.toList());
   }
 
-  protected static List<TickerFile> fillTickerFileList(List<String> tickerNames) {
+/*  protected static List<TickerFile> fillTickerFileList(List<String> tickerNames) {
     return List.copyOf(tickerNames).stream()
         .map(fileName -> new TickerFile(fileName, TickerFile.FileStatus.NOT_LOADED))
         .collect(Collectors.toList());
-  }
+  }*/
 
   // ------------------------- Flow -------------------------
 

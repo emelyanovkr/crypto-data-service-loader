@@ -3,17 +3,16 @@ package com.crypto.service.data;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
-import java.util.List;
 import java.util.stream.Collectors;
 
 public class TickerFile {
-  protected String fileName;
+  protected final String fileName;
+  protected final LocalDate createDate;
   protected FileStatus status;
 
   public enum FileStatus {
-    NOT_LOADED,
     DISCOVERED,
-    DOWNLOADED,
+    DOWNLOADING,
     READY_FOR_PROCESSING,
     IN_PROGRESS,
     FINISHED,
@@ -25,8 +24,9 @@ public class TickerFile {
     }
   }
 
-  public TickerFile(String fileName, FileStatus status) {
+  public TickerFile(String fileName, LocalDate createDate, FileStatus status) {
     this.fileName = fileName;
+    this.createDate = createDate;
     this.status = status;
   }
 
@@ -42,9 +42,19 @@ public class TickerFile {
     return status;
   }
 
+  public LocalDate getCreateDate() {
+    return createDate;
+  }
+
   public static String formDataToInsert(Collection<TickerFile> data) {
     return data.stream()
-        .map(tickerFile -> tickerFile.getFileName() + "\t" + tickerFile.getStatus())
+        .map(
+            tickerFile ->
+                tickerFile.getFileName()
+                    + "\t"
+                    + tickerFile.getCreateDate()
+                    + "\t"
+                    + tickerFile.getStatus())
         .collect(Collectors.joining("\n"));
   }
 

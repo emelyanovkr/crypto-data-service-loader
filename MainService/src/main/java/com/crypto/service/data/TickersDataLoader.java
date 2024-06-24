@@ -100,7 +100,6 @@ public class TickersDataLoader {
     public TickersInsertTask(List<String> tickerPartition) {
       this.tickerPartition = tickerPartition;
       this.tickerFilesMap = new HashMap<>();
-      fillTickerFileList(tickerPartition);
     }
 
     @Override
@@ -108,7 +107,8 @@ public class TickersDataLoader {
       startInsertTickers();
     }
 
-    protected void fillTickerFileList(List<String> tickerNames) {
+    // TODO: FLOW 3
+    /*    protected void fillTickerFileList(List<String> tickerNames) {
       tickerFilesMap =
           ImmutableList.copyOf(tickerNames).stream()
               .collect(
@@ -118,7 +118,7 @@ public class TickersDataLoader {
                           new TickerFile(
                               filePath.substring(filePath.lastIndexOf('\\') + 1),
                               TickerFile.FileStatus.NOT_LOADED)));
-    }
+    }*/
 
     protected void startInsertTickers() {
       AtomicBoolean compressionTaskRunning = new AtomicBoolean(false);
@@ -141,7 +141,7 @@ public class TickersDataLoader {
               CompressionHandler.createCompressionHandler(
                   pout, compressionTaskRunning, stopCompressionCommand);
 
-          //TODO: UPDATE статусы для всех файлов в IN_PROGRESS
+          // TODO: UPDATE статусы для всех файлов в IN_PROGRESS
 
           // TODO: передавать структуру с tickerFiles, для каждого файла я установлю соответствующий
           // статус
@@ -154,7 +154,10 @@ public class TickersDataLoader {
                         return null;
                       }));
 
-          // TODO: проверить, вставляются ли данные в середине работы программы, в случае если вся пачка упадёт
+          // TODO: проверить, вставляются ли данные в середине работы программы, в случае если вся
+          // пачка упадёт
+          // для тех кто обработался должен быть установлен статус finished, для всех остальных
+          // error
           clickHouseDAO.insertTickersData(pin, Tables.TICKERS_DATA.getTableName());
           insertSuccessful.set(true);
           break;
@@ -184,20 +187,16 @@ public class TickersDataLoader {
             .values()
             .forEach(
                 tickerFile -> {
-                  if (tickerFile.status != TickerFile.FileStatus.FINISHED)
+                  if (tickerFile.status != TickerFile.FileStatus.FINISHED) {
                     tickerFile.status = TickerFile.FileStatus.ERROR;
+                  }
                 });
         System.err.println(this.getClass().getName() + " LOST TICKERS: ");
       }
 
-      try {
-        String dataToInsert = TickerFile.formDataToInsert(tickerFilesMap.values());
+      String dataToInsert = TickerFile.formDataToInsert(tickerFilesMap.values());
+      // TODO: change insert to UPDATE STATUS IN DB ON FINISHED OR ERROR
 
-        // TODO: UPDATE STATUS IN DB instead of inserting
-        clickHouseDAO.insertTickerFilesInfo(dataToInsert, Tables.TICKER_FILES.getTableName());
-      } catch (ClickHouseException e) {
-        LOGGER.error("FAILED TO INSERT TICKERS FILES STATUS - ", e);
-      }
     }
   }
 }

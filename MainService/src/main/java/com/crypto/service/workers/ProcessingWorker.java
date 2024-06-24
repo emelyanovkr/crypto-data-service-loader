@@ -31,7 +31,7 @@ public class ProcessingWorker implements Runnable {
           clickHouseDAO.selectTickerFilesNamesOnStatus(
               Tables.TICKER_FILES.getTableName(),
               TickerFile.FileStatus.DISCOVERED,
-              TickerFile.FileStatus.READY_FOR_PROCESSING);
+              TickerFile.FileStatus.DOWNLOADING);
     } catch (ClickHouseException e) {
       throw new RuntimeException(e);
     }
@@ -44,8 +44,8 @@ public class ProcessingWorker implements Runnable {
     int changesCounter = 0;
     for (TickerFile file : tickerFiles) {
       LocalDate fileDate = TickerFile.getFileDate(file.getFileName());
-      if (fileDate.isEqual(currentDate) && file.getStatus() != TickerFile.FileStatus.DOWNLOADED) {
-        file.setStatus(TickerFile.FileStatus.DOWNLOADED);
+      if (fileDate.isEqual(currentDate) && file.getStatus() != TickerFile.FileStatus.DOWNLOADING) {
+        file.setStatus(TickerFile.FileStatus.DOWNLOADING);
         ++changesCounter;
       } else if (fileDate.isBefore(currentDate)
           && file.getStatus() != TickerFile.FileStatus.READY_FOR_PROCESSING) {
@@ -55,7 +55,7 @@ public class ProcessingWorker implements Runnable {
     }
 
     if(changesCounter > 0) {
-      proceedToUpdateStatus(TickerFile.FileStatus.DOWNLOADED);
+      proceedToUpdateStatus(TickerFile.FileStatus.DOWNLOADING);
       proceedToUpdateStatus(TickerFile.FileStatus.READY_FOR_PROCESSING);
     }
   }

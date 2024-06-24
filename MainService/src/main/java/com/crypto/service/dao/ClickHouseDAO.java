@@ -1,10 +1,12 @@
 package com.crypto.service.dao;
 
 import com.clickhouse.client.*;
+import com.clickhouse.data.*;
 import com.clickhouse.data.ClickHouseCompression;
 import com.clickhouse.data.ClickHouseFormat;
 import com.clickhouse.data.ClickHousePassThruStream;
 import com.clickhouse.data.ClickHouseRecord;
+import com.clickhouse.data.ClickHouseValue;
 import com.crypto.service.data.TickerFile;
 import com.crypto.service.util.ConnectionHandler;
 import org.slf4j.Logger;
@@ -12,10 +14,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.StringJoiner;
+import java.time.LocalDate;
+import java.util.*;
 import java.util.stream.StreamSupport;
 
 public class ClickHouseDAO {
@@ -27,6 +27,62 @@ public class ClickHouseDAO {
   public ClickHouseDAO() {
     this.server = ConnectionHandler.initClickHouseConnection();
     this.client = ClickHouseClient.newInstance(server.getProtocol());
+  }
+
+  public List<String> selectTickerFilesNames(String tableName) throws ClickHouseException {
+    try (ClickHouseResponse response =
+        client
+            .read(server)
+            .query("SELECT filename FROM :tableName")
+            .params(tableName)
+            .executeAndWait()) {
+
+      Iterable<ClickHouseRecord> records = response.records();
+      List<String> tickerNames = new ArrayList<>();
+      for (ClickHouseRecord record : records) {
+        ClickHouseValue filenameValue = record.getValue(0);
+        tickerNames.add(filenameValue.asString());
+      }
+      return tickerNames;
+    }
+  }
+
+  public List<TickerFile> selectTickerFilesNamesOnStatus(
+      String tableName, TickerFile.FileStatus... statuses) throws ClickHouseException {
+    StringJoiner joiner = new StringJoiner(",");
+
+    for (TickerFile.FileStatus status : statuses) {
+      joiner.add(status.getSQLStatus());
+    }
+
+    try (ClickHouseResponse response =
+        client
+            .read(server)
+            .query("SELECT * FROM :tableName WHERE status IN (:data)")
+            .params(List.of(tableName, joiner.toString()))
+            .executeAndWait()) {
+
+      Iterable<ClickHouseRecord> records = response.records();
+      List<TickerFile> tickerNames = new ArrayList<>();
+      for (ClickHouseRecord record : records) {
+        ClickHouseValue tickerValue = record.getValue(0);
+        String[] data = tickerValue.asString().split("\\t");
+        tickerNames.add(new TickerFile(data[0], null, TickerFile.FileStatus.valueOf(data[1])));
+      }
+      return tickerNames;
+    }
+  }
+
+  public LocalDate selectMaxTickerFilesDate(String columnName, String tableName)
+      throws ClickHouseException {
+    try (ClickHouseResponse response =
+        client
+            .read(server)
+            .query("SELECT MAX(:columName) FROM :tableName")
+            .params(List.of(columnName, tableName))
+            .executeAndWait()) {
+      return response.firstRecord().getValue(0).asDateTime().toLocalDate();
+    }
   }
 
   public void insertTickersData(PipedInputStream pin, String tableName) throws ClickHouseException {
@@ -60,50 +116,6 @@ public class ClickHouseDAO {
             .query("ALTER TABLE :tableName UPDATE status = :status WHERE filename IN (:data)")
             .params(List.of(tableName, status.getSQLStatus(), data))
             .executeAndWait()) {}
-  }
-
-  public List<String> selectTickerFilesNames(String tableName) throws ClickHouseException {
-    try (ClickHouseResponse response =
-        client
-            .read(server)
-            .query("SELECT filename FROM :tableName")
-            .params(tableName)
-            .executeAndWait()) {
-
-      // TODO: REFACTOR
-      Iterable<ClickHouseRecord> records = response.records();
-      List<String> tickerNames = new ArrayList<>();
-      for (ClickHouseRecord record : records) {
-        tickerNames.add(record.iterator().next().asString());
-      }
-      return tickerNames;
-    }
-  }
-
-  public List<TickerFile> selectTickerFilesNamesOnStatus(
-      String tableName, TickerFile.FileStatus... statuses) throws ClickHouseException {
-    StringJoiner joiner = new StringJoiner(",");
-
-    for (TickerFile.FileStatus status : statuses) {
-      joiner.add(status.getSQLStatus());
-    }
-
-    try (ClickHouseResponse response =
-        client
-            .read(server)
-            .query("SELECT * FROM :tableName WHERE status IN (:data)")
-            .params(List.of(tableName, joiner.toString()))
-            .executeAndWait()) {
-
-      // TODO: REFACTOR
-      Iterable<ClickHouseRecord> records = response.records();
-      List<TickerFile> tickerNames = new ArrayList<>();
-      for (ClickHouseRecord record : records) {
-        String[] data = record.iterator().next().asString().split("\\t");
-        tickerNames.add(new TickerFile(data[0], TickerFile.FileStatus.valueOf(data[1])));
-      }
-      return tickerNames;
-    }
   }
 
   public void truncateTable(String tableName) {
