@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.StreamSupport;
 
@@ -62,12 +63,16 @@ public class ClickHouseDAO {
             .params(List.of(tableName, joiner.toString()))
             .executeAndWait()) {
 
+      DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
       Iterable<ClickHouseRecord> records = response.records();
       List<TickerFile> tickerNames = new ArrayList<>();
       for (ClickHouseRecord record : records) {
         ClickHouseValue tickerValue = record.getValue(0);
         String[] data = tickerValue.asString().split("\\t");
-        tickerNames.add(new TickerFile(data[0], null, TickerFile.FileStatus.valueOf(data[1])));
+        LocalDate create_date = LocalDate.parse(data[1], dateTimeFormatter);
+        tickerNames.add(
+            new TickerFile(data[0], create_date, TickerFile.FileStatus.valueOf(data[2])));
       }
       return tickerNames;
     }

@@ -4,28 +4,34 @@ import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
+import com.crypto.service.data.TickersDataLoader;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.stream.Collectors;
 
-// TODO: INTERFACE?
-// TODO: rename to uploaderWorker
 public class UploaderWorker implements Runnable {
 
-  ClickHouseDAO clickHouseDAO;
-  List<TickerFile> tickerFiles;
+  protected String directoryPath;
+  protected ClickHouseDAO clickHouseDAO;
+  protected List<TickerFile> tickerFiles;
+  protected List<Path> filePaths;
 
-  public UploaderWorker() {
+  public UploaderWorker(String directoryPath) {
+    this.directoryPath = directoryPath;
     this.clickHouseDAO = new ClickHouseDAO();
     tickerFiles = new ArrayList<>();
   }
 
   @Override
   public void run() {
-    someFunction();
+    retrievePreparedFiles();
   }
 
-  protected void someFunction() {
+  protected void retrievePreparedFiles() {
     try {
       tickerFiles =
           clickHouseDAO.selectTickerFilesNamesOnStatus(
@@ -36,10 +42,52 @@ public class UploaderWorker implements Runnable {
           TickerFile.FileStatus.IN_PROGRESS,
           Tables.TICKER_FILES.getTableName());
 
-      // TickersDataLoader
-
     } catch (ClickHouseException e) {
       throw new RuntimeException(e);
     }
+
+    fillPathsList();
+  }
+
+  protected void fillPathsList() {
+    filePaths = new ArrayList<>();
+    HashMap<String, HashSet<String>> tickerDatesToFileNames =
+        tickerFiles.stream()
+            .collect(
+                Collectors.groupingBy(
+                    tickerFile -> tickerFile.getCreateDate().toString(),
+                    HashMap::new,
+                    Collectors.mapping(
+                        TickerFile::getFileName, Collectors.toCollection(HashSet::new))));
+
+    try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(Path.of(directoryPath))) {
+      for (Path pathEntry : directoryStream) {
+        String createDateDirectory = pathEntry.getFileName().toString();
+
+        if (Files.isDirectory(pathEntry) && tickerDatesToFileNames.containsKey(createDateDirectory)) {
+          try (DirectoryStream<Path> innerDirectoryStream = Files.newDirectoryStream(pathEntry)) {
+            for (Path innerPathEntry : innerDirectoryStream) {
+              if (tickerDatesToFileNames
+                  .get(createDateDirectory)
+                  .contains(innerPathEntry.getFileName().toString())) {
+                filePaths.add(innerPathEntry.toAbsolutePath());
+              }
+            }
+          }
+        }
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+
+    System.out.println(filePaths);
+
+    uploadFilesData();
+  }
+
+  protected void uploadFilesData()
+  {
+    TickersDataLoader dataLoader = new TickersDataLoader(filePaths);
+    dataLoader.uploadTickersData();
   }
 }

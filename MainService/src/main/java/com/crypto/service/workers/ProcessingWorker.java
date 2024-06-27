@@ -35,6 +35,18 @@ public class ProcessingWorker implements Runnable {
     } catch (ClickHouseException e) {
       throw new RuntimeException(e);
     }
+
+    // TODO: DEBUG print
+    tickerFiles.stream()
+        .map(
+            localTickerFile ->
+                localTickerFile.getFileName()
+                    + " "
+                    + localTickerFile.getCreateDate()
+                    + " "
+                    + localTickerFile.getStatus())
+        .forEach(System.out::println);
+
     checkFilesStatus();
   }
 
@@ -43,18 +55,17 @@ public class ProcessingWorker implements Runnable {
 
     int changesCounter = 0;
     for (TickerFile file : tickerFiles) {
-      LocalDate fileDate = TickerFile.getFileDate(file.getFileName());
-      if (fileDate.isEqual(currentDate) && file.getStatus() != TickerFile.FileStatus.DOWNLOADING) {
+      LocalDate fileDate = file.getCreateDate();
+      if (fileDate.isEqual(currentDate) && file.getStatus() == TickerFile.FileStatus.DISCOVERED) {
         file.setStatus(TickerFile.FileStatus.DOWNLOADING);
         ++changesCounter;
-      } else if (fileDate.isBefore(currentDate)
-          && file.getStatus() != TickerFile.FileStatus.READY_FOR_PROCESSING) {
+      } else if (fileDate.isBefore(currentDate)) {
         file.setStatus(TickerFile.FileStatus.READY_FOR_PROCESSING);
         ++changesCounter;
       }
     }
 
-    if(changesCounter > 0) {
+    if (changesCounter > 0) {
       proceedToUpdateStatus(TickerFile.FileStatus.DOWNLOADING);
       proceedToUpdateStatus(TickerFile.FileStatus.READY_FOR_PROCESSING);
     }

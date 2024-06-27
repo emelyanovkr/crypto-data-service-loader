@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.*;
+import java.nio.file.Path;
 import java.text.DecimalFormat;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,8 +34,7 @@ public class CompressionHandler {
     return new CompressionHandler(pout, taskRunningStatus, stopCommand);
   }
 
-  public void compressFilesWithGZIP(
-      List<String> tickersPath, BiFunction<TickerFile.FileStatus, String, Void> updateStatus) {
+  public void compressFilesWithGZIP(List<Path> tickersPath) {
     if (tickersPath == null || tickersPath.isEmpty()) {
       return;
     }
@@ -44,8 +44,8 @@ public class CompressionHandler {
       double totalDataCompressedSize = 0;
 
       try (GZIPOutputStream gzOut = new GZIPOutputStream(pout)) {
-        for (String file : tickersPath) {
-          try (InputStream fin = new FileInputStream(file)) {
+        for (Path filePath : tickersPath) {
+          try (InputStream fin = new FileInputStream(filePath.toFile())) {
             final byte[] buffer = new byte[BUFFER_SIZE];
             int n;
             while ((n = fin.read(buffer)) != -1) {
@@ -55,9 +55,9 @@ public class CompressionHandler {
               gzOut.write(buffer, 0, n);
               totalDataCompressedSize += n;
             }
-            updateStatus.apply(TickerFile.FileStatus.FINISHED, file);
+            // updateStatus.apply(TickerFile.FileStatus.FINISHED, filePath);
           } catch (IOException e) {
-            
+
             LOGGER.error("READING COMPRESSION ERROR - ", e);
             throw new RuntimeException(e);
           }

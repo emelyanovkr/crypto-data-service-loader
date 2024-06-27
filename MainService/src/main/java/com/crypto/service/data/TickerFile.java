@@ -64,12 +64,4 @@ public class TickerFile {
         .map(name -> "'" + name + "'")
         .collect(Collectors.joining(","));
   }
-
-  public static LocalDate getFileDate(String filename) {
-    int lastUnderScoreIndex = filename.lastIndexOf('_');
-    String dateString = filename.substring(lastUnderScoreIndex + 1);
-    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-
-    return LocalDate.parse(dateString, formatter);
-  }
 }

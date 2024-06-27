@@ -1,24 +1,19 @@
 package com.crypto.service.data;
 
-import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.util.CompressionHandler;
 import com.crypto.service.util.PropertiesLoader;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.nio.file.Paths;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 public class TickersDataLoader {
   protected final int PARTS_QUANTITY;
@@ -31,15 +26,13 @@ public class TickersDataLoader {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(TickersDataLoader.class);
 
-  protected final String SOURCE_PATH;
+  protected final List<Path> filePaths;
   protected ClickHouseDAO clickHouseDAO;
 
-  public TickersDataLoader() {
-    String currentDate = getCurrentDate();
+  public TickersDataLoader(List<Path> filePaths) {
+    this.filePaths = new ArrayList<>(filePaths);
     try {
       Properties projectProperties = PropertiesLoader.loadProjectConfig();
-
-      SOURCE_PATH = projectProperties.getProperty("DATA_PATH") + "/" + currentDate;
       MAX_FLUSH_ATTEMPTS = Integer.parseInt(projectProperties.getProperty("max_flush_attempts"));
       PARTS_QUANTITY =
           Integer.parseInt(projectProperties.getProperty("data_divided_parts_quantity"));
@@ -56,48 +49,23 @@ public class TickersDataLoader {
     clickHouseDAO = new ClickHouseDAO();
   }
 
-  protected String getCurrentDate() {
-    LocalDate currentDate = LocalDate.now();
-    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-
-    return currentDate.format(formatter);
-  }
-
-  protected List<String> getFilesInDirectory(String directory) {
-    File searchDirectory = new File(directory);
-    List<String> tickerNames;
-
-    try {
-      tickerNames = List.of(Objects.requireNonNull(searchDirectory.list()));
-    } catch (Exception e) {
-      LOGGER.error("FAILED TO SEARCH DIRECTORY - ", e);
-      throw new RuntimeException();
-    }
-
-    return ImmutableList.copyOf(tickerNames).stream()
-        .map(fileName -> Paths.get(directory, fileName).toString())
-        .collect(Collectors.toList());
-  }
-
   public void uploadTickersData() {
-    List<String> tickerNames = getFilesInDirectory(SOURCE_PATH);
 
-    List<List<String>> tickerParts =
+    List<List<Path>> tickerParts =
         Lists.partition(
-            tickerNames,
-            tickerNames.size() < (PARTS_QUANTITY) ? 1 : tickerNames.size() / PARTS_QUANTITY);
+            filePaths, filePaths.size() < (PARTS_QUANTITY) ? 1 : filePaths.size() / PARTS_QUANTITY);
 
-    for (List<String> tickerPartition : tickerParts) {
+    for (List<Path> tickerPartition : tickerParts) {
       insert_executor.execute(new TickersInsertTask(tickerPartition));
     }
   }
 
   protected class TickersInsertTask implements Runnable {
-    protected final List<String> tickerPartition;
+    protected final List<Path> tickerPartition;
     protected CompressionHandler compressionHandler;
-    protected Map<String, TickerFile> tickerFilesMap;
+    protected Map<Path, TickerFile> tickerFilesMap;
 
-    public TickersInsertTask(List<String> tickerPartition) {
+    public TickersInsertTask(List<Path> tickerPartition) {
       this.tickerPartition = tickerPartition;
       this.tickerFilesMap = new HashMap<>();
     }
@@ -106,19 +74,6 @@ public class TickersDataLoader {
     public void run() {
       startInsertTickers();
     }
-
-    // TODO: FLOW 3
-    /*    protected void fillTickerFileList(List<String> tickerNames) {
-      tickerFilesMap =
-          ImmutableList.copyOf(tickerNames).stream()
-              .collect(
-                  Collectors.toMap(
-                      filePath -> filePath,
-                      filePath ->
-                          new TickerFile(
-                              filePath.substring(filePath.lastIndexOf('\\') + 1),
-                              TickerFile.FileStatus.NOT_LOADED)));
-    }*/
 
     protected void startInsertTickers() {
       AtomicBoolean compressionTaskRunning = new AtomicBoolean(false);
@@ -141,18 +96,10 @@ public class TickersDataLoader {
               CompressionHandler.createCompressionHandler(
                   pout, compressionTaskRunning, stopCompressionCommand);
 
-          // TODO: UPDATE статусы для всех файлов в IN_PROGRESS
-
           // TODO: передавать структуру с tickerFiles, для каждого файла я установлю соответствующий
           // статус
           compression_executor.execute(
-              () ->
-                  compressionHandler.compressFilesWithGZIP(
-                      tickerPartition,
-                      (fileStatus, filePath) -> {
-                        tickerFilesMap.get(filePath).setStatus(fileStatus);
-                        return null;
-                      }));
+              () -> compressionHandler.compressFilesWithGZIP(tickerPartition));
 
           // TODO: проверить, вставляются ли данные в середине работы программы, в случае если вся
           // пачка упадёт
@@ -178,9 +125,7 @@ public class TickersDataLoader {
     }
 
     protected void proceedInsertStatus(AtomicBoolean insertSuccessful) {
-      /*
-        проверить, что статус != error ->
-      */
+      // проверить, что статус != error ->
 
       if (!insertSuccessful.get()) {
         tickerFilesMap

@@ -12,7 +12,6 @@ public class DiscoveryWorker implements Runnable {
 
   protected final ClickHouseDAO clickHouseDAO;
 
-  // TODO: test
   public DiscoveryWorker(List<TickerFile> filesBuffer) {
     this.localTickerFiles = new ArrayList<>(filesBuffer);
 
@@ -31,14 +30,15 @@ public class DiscoveryWorker implements Runnable {
 
       // TODO: DEBUG PRINT
       System.out.println("BEFORE: ");
-      for (TickerFile localTickerFile : localTickerFiles) {
-        System.out.println(
-            localTickerFile.getFileName()
-                + " "
-                + localTickerFile.getCreateDate()
-                + " "
-                + localTickerFile.getStatus());
-      }
+      localTickerFiles.stream()
+          .map(
+              localTickerFile ->
+                  localTickerFile.getFileName()
+                      + " "
+                      + localTickerFile.getCreateDate()
+                      + " "
+                      + localTickerFile.getStatus())
+          .forEach(System.out::println);
 
       Set<String> filesInDatabase = new HashSet<>(filesFromDatabase);
       for (Iterator<TickerFile> localIterator = localTickerFiles.iterator();
@@ -53,14 +53,15 @@ public class DiscoveryWorker implements Runnable {
 
       // TODO: DEBUG PRINT
       System.out.println("AFTER: ");
-      for (TickerFile localTickerFile : localTickerFiles) {
-        System.out.println(
-            localTickerFile.getFileName()
-                + " "
-                + localTickerFile.getCreateDate()
-                + " "
-                + localTickerFile.getStatus());
-      }
+      localTickerFiles.stream()
+          .map(
+              localTickerFile ->
+                  localTickerFile.getFileName()
+                      + " "
+                      + localTickerFile.getCreateDate()
+                      + " "
+                      + localTickerFile.getStatus())
+          .forEach(System.out::println);
 
       clickHouseDAO.insertTickerFilesInfo(
           TickerFile.formDataToInsert(localTickerFiles), Tables.TICKER_FILES.getTableName());
