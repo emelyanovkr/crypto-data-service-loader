@@ -79,6 +79,9 @@ public class UploaderWorker implements Runnable {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+
+    // TODO: DEBUG PRINT
+    System.out.println(filePaths.size() + " | " + tickerFiles.size());
   }
 
   protected void uploadTickerFilesData()

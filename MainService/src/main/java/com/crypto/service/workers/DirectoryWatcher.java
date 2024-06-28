@@ -17,7 +17,7 @@ public class DirectoryWatcher implements Runnable {
 
   protected final int FILES_BUFFER_SIZE = 8192;
   // TODO: CHANGE THIS TIMEOUT
-  protected final int DISCOVERY_FILES_TIMEOUT_SEC = 5;
+  protected final int DISCOVERY_FILES_TIMEOUT_SEC = 15;
 
   public DirectoryWatcher(String directoryPath, List<TickerFile> filesBuffer) {
     this.directoryPath = directoryPath;
@@ -71,7 +71,7 @@ public class DirectoryWatcher implements Runnable {
   protected void watchDirectory() {
     try (WatchService watcher = FileSystems.getDefault().newWatchService()) {
       // TODO: нужно чтобы следил за директорией с датой определённой а не за всей директорией
-      Path watchedDirectory = Paths.get(directoryPath);
+      Path watchedDirectory = Path.of(directoryPath + "/" + LocalDate.now());
 
       watchedDirectory.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
 

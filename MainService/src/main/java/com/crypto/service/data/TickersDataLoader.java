@@ -63,7 +63,7 @@ public class TickersDataLoader {
             tickerFiles,
             tickerFiles.size() < (PARTS_QUANTITY) ? 1 : tickerFiles.size() / PARTS_QUANTITY);
 
-    for (int i = 0; i < filePaths.size(); i++) {
+    for (int i = 0; i < tickerPathPartition.size(); i++) {
       insert_executor.execute(
           new TickersInsertTask(tickerPathPartition.get(i), tickerFilesPartition.get(i)));
     }

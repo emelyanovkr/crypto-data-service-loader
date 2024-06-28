@@ -29,6 +29,7 @@ public class PreparingWorker implements Runnable {
   @Override
   public void run() {
     prepareFileNamesList();
+    startWatcherService();
   }
 
   protected void prepareFileNamesList() {
@@ -36,6 +37,9 @@ public class PreparingWorker implements Runnable {
       LocalDate currentDate = LocalDate.now();
       LocalDate maxDate =
           clickHouseDAO.selectMaxTickerFilesDate("create_date", Tables.TICKER_FILES.getTableName());
+
+      // TODO: DEBUG PRINT
+      System.out.println("MAX DATE: " + maxDate);
 
       while (maxDate.isBefore(currentDate)) {
         Path dateDir = Paths.get(directoryPath + "/" + maxDate);
@@ -56,8 +60,6 @@ public class PreparingWorker implements Runnable {
     } catch (ClickHouseException e) {
       throw new RuntimeException(e);
     }
-
-    startWatcherService();
   }
 
   protected void startWatcherService() {
