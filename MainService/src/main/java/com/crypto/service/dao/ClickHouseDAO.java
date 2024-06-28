@@ -1,7 +1,6 @@
 package com.crypto.service.dao;
 
 import com.clickhouse.client.*;
-import com.clickhouse.data.*;
 import com.clickhouse.data.ClickHouseCompression;
 import com.clickhouse.data.ClickHouseFormat;
 import com.clickhouse.data.ClickHousePassThruStream;
@@ -17,7 +16,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.StreamSupport;
 
 public class ClickHouseDAO {
   private final ClickHouseNode server;
@@ -115,6 +113,11 @@ public class ClickHouseDAO {
 
   public void updateTickerFilesStatus(String data, TickerFile.FileStatus status, String tableName)
       throws ClickHouseException {
+
+    if (data.isEmpty()) {
+      return;
+    }
+
     try (ClickHouseResponse response =
         client
             .write(server)

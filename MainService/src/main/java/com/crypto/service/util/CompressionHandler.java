@@ -8,10 +8,9 @@ import org.slf4j.MDC;
 import java.io.*;
 import java.nio.file.Path;
 import java.text.DecimalFormat;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.zip.GZIPOutputStream;
 
 public class CompressionHandler {
@@ -34,7 +33,7 @@ public class CompressionHandler {
     return new CompressionHandler(pout, taskRunningStatus, stopCommand);
   }
 
-  public void compressFilesWithGZIP(List<Path> tickersPath) {
+  public void compressFilesWithGZIP(List<Path> tickersPath, HashSet<TickerFile> tickerFiles) {
     if (tickersPath == null || tickersPath.isEmpty()) {
       return;
     }
@@ -45,6 +44,8 @@ public class CompressionHandler {
 
       try (GZIPOutputStream gzOut = new GZIPOutputStream(pout)) {
         for (Path filePath : tickersPath) {
+          String fileName = filePath.getFileName().toString();
+
           try (InputStream fin = new FileInputStream(filePath.toFile())) {
             final byte[] buffer = new byte[BUFFER_SIZE];
             int n;
@@ -55,7 +56,15 @@ public class CompressionHandler {
               gzOut.write(buffer, 0, n);
               totalDataCompressedSize += n;
             }
-            // updateStatus.apply(TickerFile.FileStatus.FINISHED, filePath);
+
+            // TODO: NULL CHECK?
+            TickerFile representingFile =
+                tickerFiles.stream()
+                    .filter(tickerFile -> tickerFile.getFileName().equals(fileName))
+                    .findFirst()
+                    .get();
+            representingFile.setStatus(TickerFile.FileStatus.FINISHED);
+
           } catch (IOException e) {
 
             LOGGER.error("READING COMPRESSION ERROR - ", e);
@@ -66,31 +75,33 @@ public class CompressionHandler {
         LOGGER.error("COMPRESSION ERROR - ", e);
         throw new RuntimeException(e);
       }
-      // TODO: Possible to implement TOTAL DATA INSERT, TOTAL RATE, TOTAL TIME & INSERT SESSION
-      //  UUID?
 
-      DecimalFormat df = new DecimalFormat("0.00");
-
-      double totalTime = (double) (System.currentTimeMillis() - start) / 1000;
-      totalDataCompressedSize /= (1024 * 1024);
-
-      String totalTimeStr = df.format(totalTime);
-      String totalSizeStr = df.format(totalDataCompressedSize);
-      String compressionRate = df.format(totalDataCompressedSize / totalTime);
-
-      MDC.put("data_size", totalSizeStr);
-      MDC.put("compression_rate", compressionRate);
-      MDC.put("total_time", totalTimeStr);
-
-      LOGGER.info(
-          "Compression of {} MB of data with rate {} MB/sec finished in {} sec.",
-          totalSizeStr,
-          compressionRate,
-          totalTimeStr);
-
-      MDC.clear();
+      formLoggingData(start, totalDataCompressedSize);
     } finally {
       taskRunningStatus.set(false);
     }
+  }
+
+  protected void formLoggingData(long start, double totalDataCompressedSize) {
+    DecimalFormat df = new DecimalFormat("0.00");
+
+    double totalTime = (double) (System.currentTimeMillis() - start) / 1000;
+    totalDataCompressedSize /= (1024 * 1024);
+
+    String totalTimeStr = df.format(totalTime);
+    String totalSizeStr = df.format(totalDataCompressedSize);
+    String compressionRate = df.format(totalDataCompressedSize / totalTime);
+
+    MDC.put("data_size", totalSizeStr);
+    MDC.put("compression_rate", compressionRate);
+    MDC.put("total_time", totalTimeStr);
+
+    LOGGER.info(
+        "Compression of {} MB of data with rate {} MB/sec finished in {} sec.",
+        totalSizeStr,
+        compressionRate,
+        totalTimeStr);
+
+    MDC.clear();
   }
 }

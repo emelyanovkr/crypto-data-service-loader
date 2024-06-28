@@ -29,6 +29,8 @@ public class UploaderWorker implements Runnable {
   @Override
   public void run() {
     retrievePreparedFiles();
+    fillPathsList();
+    uploadTickerFilesData();
   }
 
   protected void retrievePreparedFiles() {
@@ -45,8 +47,6 @@ public class UploaderWorker implements Runnable {
     } catch (ClickHouseException e) {
       throw new RuntimeException(e);
     }
-
-    fillPathsList();
   }
 
   protected void fillPathsList() {
@@ -79,15 +79,11 @@ public class UploaderWorker implements Runnable {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-
-    System.out.println(filePaths);
-
-    uploadFilesData();
   }
 
-  protected void uploadFilesData()
+  protected void uploadTickerFilesData()
   {
-    TickersDataLoader dataLoader = new TickersDataLoader(filePaths);
+    TickersDataLoader dataLoader = new TickersDataLoader(filePaths, tickerFiles);
     dataLoader.uploadTickersData();
   }
 }

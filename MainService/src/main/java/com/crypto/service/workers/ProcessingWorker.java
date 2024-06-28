@@ -4,11 +4,11 @@ import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
+import com.crypto.service.util.WorkersUtil;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class ProcessingWorker implements Runnable {
 
@@ -23,6 +23,7 @@ public class ProcessingWorker implements Runnable {
   @Override
   public void run() {
     retrieveTickerFilesInfo();
+    proceedFilesStatus();
   }
 
   protected void retrieveTickerFilesInfo() {
@@ -35,22 +36,9 @@ public class ProcessingWorker implements Runnable {
     } catch (ClickHouseException e) {
       throw new RuntimeException(e);
     }
-
-    // TODO: DEBUG print
-    tickerFiles.stream()
-        .map(
-            localTickerFile ->
-                localTickerFile.getFileName()
-                    + " "
-                    + localTickerFile.getCreateDate()
-                    + " "
-                    + localTickerFile.getStatus())
-        .forEach(System.out::println);
-
-    checkFilesStatus();
   }
 
-  protected void checkFilesStatus() {
+  protected void proceedFilesStatus() {
     LocalDate currentDate = LocalDate.now();
 
     int changesCounter = 0;
@@ -66,22 +54,8 @@ public class ProcessingWorker implements Runnable {
     }
 
     if (changesCounter > 0) {
-      proceedToUpdateStatus(TickerFile.FileStatus.DOWNLOADING);
-      proceedToUpdateStatus(TickerFile.FileStatus.READY_FOR_PROCESSING);
-    }
-  }
-
-  protected void proceedToUpdateStatus(TickerFile.FileStatus status) {
-    try {
-      clickHouseDAO.updateTickerFilesStatus(
-          TickerFile.getSQLFileNames(
-              tickerFiles.stream()
-                  .filter(tickerFile -> tickerFile.getStatus() == status)
-                  .collect(Collectors.toList())),
-          status,
-          Tables.TICKER_FILES.getTableName());
-    } catch (ClickHouseException e) {
-      throw new RuntimeException(e);
+      WorkersUtil.proceedToUpdateStatus(clickHouseDAO, tickerFiles, TickerFile.FileStatus.DOWNLOADING);
+      WorkersUtil.proceedToUpdateStatus(clickHouseDAO, tickerFiles, TickerFile.FileStatus.READY_FOR_PROCESSING);
     }
   }
 }

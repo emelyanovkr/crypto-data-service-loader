@@ -28,18 +28,6 @@ public class DiscoveryWorker implements Runnable {
       List<String> filesFromDatabase =
           clickHouseDAO.selectTickerFilesNames(Tables.TICKER_FILES.getTableName());
 
-      // TODO: DEBUG PRINT
-      System.out.println("BEFORE: ");
-      localTickerFiles.stream()
-          .map(
-              localTickerFile ->
-                  localTickerFile.getFileName()
-                      + " "
-                      + localTickerFile.getCreateDate()
-                      + " "
-                      + localTickerFile.getStatus())
-          .forEach(System.out::println);
-
       Set<String> filesInDatabase = new HashSet<>(filesFromDatabase);
       for (Iterator<TickerFile> localIterator = localTickerFiles.iterator();
           localIterator.hasNext(); ) {
@@ -50,18 +38,6 @@ public class DiscoveryWorker implements Runnable {
           localIterator.remove();
         }
       }
-
-      // TODO: DEBUG PRINT
-      System.out.println("AFTER: ");
-      localTickerFiles.stream()
-          .map(
-              localTickerFile ->
-                  localTickerFile.getFileName()
-                      + " "
-                      + localTickerFile.getCreateDate()
-                      + " "
-                      + localTickerFile.getStatus())
-          .forEach(System.out::println);
 
       clickHouseDAO.insertTickerFilesInfo(
           TickerFile.formDataToInsert(localTickerFiles), Tables.TICKER_FILES.getTableName());
