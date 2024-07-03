@@ -8,13 +8,12 @@ import com.crypto.service.data.TickerFile;
 import java.util.*;
 
 public class DiscoveryWorker implements Runnable {
-  protected final List<TickerFile> localTickerFiles;
+  protected final Collection<TickerFile> localTickerFiles;
 
   protected final ClickHouseDAO clickHouseDAO;
 
-  public DiscoveryWorker(List<TickerFile> filesBuffer) {
-    this.localTickerFiles = new ArrayList<>(filesBuffer);
-
+  public DiscoveryWorker(Collection<TickerFile> filesBuffer) {
+    this.localTickerFiles = filesBuffer;
     this.clickHouseDAO = new ClickHouseDAO();
   }
 
@@ -25,6 +24,7 @@ public class DiscoveryWorker implements Runnable {
 
   protected void processDiscoveredFiles() {
     try {
+      //TODO: use filtered query by date or filename instead of full scan
       List<String> filesFromDatabase =
           clickHouseDAO.selectTickerFilesNames(Tables.TICKER_FILES.getTableName());
 

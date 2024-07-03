@@ -7,9 +7,9 @@ import com.crypto.service.workers.UploaderWorker;
 public class MainApplication {
   public static void main(String[] args) {
 
-    //PreparingWorker preparingWorker = new PreparingWorker("F:\\Programming\\Java\\DATA\\TestingData");
-    //Thread preparingThread = new Thread(preparingWorker, "PREPARING-WORKER-THREAD");
-    //preparingThread.start();
+    // PreparingWorker preparingWorker = new PreparingWorker("F:\\Programming\\Java\\DATA\\TestingData");
+    // Thread preparingThread = new Thread(preparingWorker, "PREPARING-WORKER-THREAD");
+    // preparingThread.start();
 
     // TODO: DEFINE TIMINGS FOR LAUNCH THREADS
     // ProcessingWorker processingWorker = new ProcessingWorker();
