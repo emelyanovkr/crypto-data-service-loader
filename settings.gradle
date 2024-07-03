@@ -1,4 +1,5 @@
 rootProject.name = 'crypto-data-service-loader'
 include 'ClickHouseAppender'
 include 'MainService'
+include 'flower'
 
