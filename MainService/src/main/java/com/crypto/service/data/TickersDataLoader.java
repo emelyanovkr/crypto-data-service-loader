@@ -138,7 +138,6 @@ public class TickersDataLoader {
       }
     }
 
-    // TODO: possible get out in UploaderWorker?
     protected void proceedInsertStatus(AtomicBoolean insertSuccessful) {
       if (!insertSuccessful.get()) {
         tickerFilesPartition.forEach(

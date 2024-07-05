@@ -24,9 +24,11 @@ public class DiscoveryWorker implements Runnable {
 
   protected void processDiscoveredFiles() {
     try {
-      //TODO: use filtered query by date or filename instead of full scan
       List<String> filesFromDatabase =
-          clickHouseDAO.selectTickerFilesNames(Tables.TICKER_FILES.getTableName());
+          clickHouseDAO.selectExclusiveTickerFilesNames(
+              TickerFile.getSQLFileNames(localTickerFiles), Tables.TICKER_FILES.getTableName());
+
+      System.out.println(filesFromDatabase);
 
       Set<String> filesInDatabase = new HashSet<>(filesFromDatabase);
       for (Iterator<TickerFile> localIterator = localTickerFiles.iterator();

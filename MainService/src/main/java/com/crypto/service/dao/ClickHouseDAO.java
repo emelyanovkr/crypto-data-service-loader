@@ -28,12 +28,12 @@ public class ClickHouseDAO {
     this.client = ClickHouseClient.newInstance(server.getProtocol());
   }
 
-  public List<String> selectTickerFilesNames(String tableName) throws ClickHouseException {
+  public List<String> selectExclusiveTickerFilesNames(String data, String tableName) throws ClickHouseException {
     try (ClickHouseResponse response =
         client
             .read(server)
-            .query("SELECT filename FROM :tableName")
-            .params(tableName)
+            .query("SELECT filename FROM :tableName WHERE filename IN (:data)")
+            .params(List.of(tableName, data))
             .executeAndWait()) {
 
       Iterable<ClickHouseRecord> records = response.records();
