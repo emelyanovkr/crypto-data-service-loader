@@ -4,10 +4,14 @@ import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 public class DiscoveryWorker implements Runnable {
+  protected final Logger LOGGER = LoggerFactory.getLogger(DiscoveryWorker.class);
+
   protected final Collection<TickerFile> localTickerFiles;
 
   protected final ClickHouseDAO clickHouseDAO;
@@ -28,8 +32,6 @@ public class DiscoveryWorker implements Runnable {
           clickHouseDAO.selectExclusiveTickerFilesNames(
               TickerFile.getSQLFileNames(localTickerFiles), Tables.TICKER_FILES.getTableName());
 
-      System.out.println(filesFromDatabase);
-
       Set<String> filesInDatabase = new HashSet<>(filesFromDatabase);
       for (Iterator<TickerFile> localIterator = localTickerFiles.iterator();
           localIterator.hasNext(); ) {
@@ -44,6 +46,7 @@ public class DiscoveryWorker implements Runnable {
       clickHouseDAO.insertTickerFilesInfo(
           TickerFile.formDataToInsert(localTickerFiles), Tables.TICKER_FILES.getTableName());
     } catch (ClickHouseException e) {
+      LOGGER.error("ERROR INSERTING TICKER FILES INFO - ", e);
       throw new RuntimeException(e);
     }
   }

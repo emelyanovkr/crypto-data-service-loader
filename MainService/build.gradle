@@ -42,8 +42,8 @@ dependencies {
     implementation project(':ClickHouseAppender')
     implementation project(':flower')
 
-    implementation 'com.clickhouse:clickhouse-http-client:0.6.0-patch4'
-    implementation 'com.clickhouse:clickhouse-jdbc:0.6.0-patch4'
+    implementation 'com.clickhouse:clickhouse-http-client:0.6.3'
+    implementation 'com.clickhouse:clickhouse-jdbc:0.6.3'
 
     implementation 'org.apache.httpcomponents.client5:httpclient5:5.3.1'
 
@@ -56,10 +56,10 @@ dependencies {
     implementation 'org.apache.logging.log4j:log4j-layout-template-json:2.23.1'
 
     implementation 'org.lz4:lz4-java:1.8.0'
-    implementation 'com.google.guava:guava:33.1.0-jre'
+    implementation 'com.google.guava:guava:33.2.0-jre'
 
     testImplementation 'org.mockito:mockito-core:5.11.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.12.0'
 
     annotationProcessor 'org.apache.logging.log4j:log4j-core:2.23.1'
 

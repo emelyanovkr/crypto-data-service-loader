@@ -4,6 +4,8 @@ import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -15,6 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PreparingWorker implements Runnable {
+
+  protected final Logger LOGGER = LoggerFactory.getLogger(PreparingWorker.class);
 
   protected ClickHouseDAO clickHouseDAO;
   protected String directoryPath;
@@ -38,9 +42,6 @@ public class PreparingWorker implements Runnable {
       LocalDate maxDate =
           clickHouseDAO.selectMaxTickerFilesDate("create_date", Tables.TICKER_FILES.getTableName());
 
-      // TODO: DEBUG PRINT
-      System.out.println("MAX DATE: " + maxDate);
-
       while (maxDate.isBefore(currentDate)) {
         Path dateDir = Paths.get(directoryPath + "/" + maxDate);
         if (Files.exists(dateDir)) {
@@ -51,13 +52,14 @@ public class PreparingWorker implements Runnable {
               }
             }
           } catch (IOException e) {
-            // TODO: logging?
+            LOGGER.error("ERROR OPENING DIRECTORY - ", e);
             throw new RuntimeException(e);
           }
         }
         maxDate = maxDate.plusDays(1);
       }
     } catch (ClickHouseException e) {
+      LOGGER.error("ERROR MAX DATE ACQUIRING - ", e);
       throw new RuntimeException(e);
     }
   }

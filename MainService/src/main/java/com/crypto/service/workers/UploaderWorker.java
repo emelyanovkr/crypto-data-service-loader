@@ -5,6 +5,8 @@ import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
 import com.crypto.service.data.TickersDataLoader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -14,6 +16,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class UploaderWorker implements Runnable {
+  protected final Logger LOGGER = LoggerFactory.getLogger(ProcessingWorker.class);
 
   protected String directoryPath;
   protected ClickHouseDAO clickHouseDAO;
@@ -45,6 +48,7 @@ public class UploaderWorker implements Runnable {
           Tables.TICKER_FILES.getTableName());
 
     } catch (ClickHouseException e) {
+      LOGGER.error("ERROR RETRIEVING PREPARED FILES - ", e);
       throw new RuntimeException(e);
     }
   }
@@ -77,11 +81,9 @@ public class UploaderWorker implements Runnable {
         }
       }
     } catch (IOException e) {
+      LOGGER.error("ERROR OPENING A DIRECTORY STREAM (UPLOADER) - ", e);
       throw new RuntimeException(e);
     }
-
-    // TODO: DEBUG PRINT
-    System.out.println(filePaths.size() + " | " + tickerFiles.size());
   }
 
   protected void uploadTickerFilesData()

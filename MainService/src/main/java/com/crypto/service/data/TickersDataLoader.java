@@ -6,6 +6,10 @@ import com.crypto.service.util.CompressionHandler;
 import com.crypto.service.util.PropertiesLoader;
 import com.crypto.service.util.WorkersUtil;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,7 +56,7 @@ public class TickersDataLoader {
     this.clickHouseDAO = new ClickHouseDAO();
   }
 
-  public void uploadTickersData() {
+  public ListenableFuture<Map<ListenableFuture<Void>, List<TickerFile>>> uploadTickersData() {
 
     List<List<Path>> tickerPathPartition =
         Lists.partition(
@@ -63,10 +67,22 @@ public class TickersDataLoader {
             tickerFiles,
             tickerFiles.size() < (PARTS_QUANTITY) ? 1 : tickerFiles.size() / PARTS_QUANTITY);
 
+    Map<ListenableFuture<Void>, List<TickerFile>> taskFutures = new HashMap<>();
     for (int i = 0; i < tickerPathPartition.size(); i++) {
+      SettableFuture<Void> taskFuture = SettableFuture.create();
+      List<TickerFile> filesPartition = tickerFilesPartition.get(i);
       insert_executor.execute(
-          new TickersInsertTask(tickerPathPartition.get(i), tickerFilesPartition.get(i)));
+          new TickersInsertTask(tickerPathPartition.get(i), filesPartition, taskFuture));
+      taskFutures.put(taskFuture, filesPartition);
     }
+
+    SettableFuture<Map<ListenableFuture<Void>, List<TickerFile>>> mainFuture =
+        SettableFuture.create();
+
+    Futures.whenAllComplete(taskFutures.keySet())
+        .run(() -> mainFuture.set(taskFutures), MoreExecutors.directExecutor());
+
+    return mainFuture;
   }
 
   protected class TickersInsertTask implements Runnable {
@@ -76,23 +92,25 @@ public class TickersDataLoader {
     protected CompressionHandler compressionHandler;
 
     protected AtomicBoolean compressionTaskRunning;
-    protected AtomicBoolean insertSuccessful;
+    protected final SettableFuture<Void> taskFuture;
 
     public TickersInsertTask(
-        List<Path> tickerPathPartition, List<TickerFile> tickerFilesPartition) {
+        List<Path> tickerPathPartition,
+        List<TickerFile> tickerFilesPartition,
+        SettableFuture<Void> taskFuture) {
       this.tickerPathPartition = tickerPathPartition;
       this.tickerFilesPartition = tickerFilesPartition;
+      this.taskFuture = taskFuture;
     }
 
     @Override
     public void run() {
       startInsertTickers();
-      proceedInsertStatus(insertSuccessful);
+      proceedInsertStatus();
     }
 
     protected void startInsertTickers() {
       compressionTaskRunning = new AtomicBoolean(false);
-      insertSuccessful = new AtomicBoolean(false);
       for (int i = 0; i < MAX_FLUSH_ATTEMPTS; i++) {
         AtomicBoolean stopCompressionCommand = new AtomicBoolean(false);
 
@@ -121,7 +139,8 @@ public class TickersDataLoader {
           // для тех кто обработался должен быть установлен статус finished, для всех остальных
           // error
           clickHouseDAO.insertTickersData(pin, Tables.TICKERS_DATA.getTableName());
-          insertSuccessful.set(true);
+
+          taskFuture.set(null);
           break;
         } catch (Exception e) {
           LOGGER.error("FAILED TO INSERT TICKERS DATA - ", e);
@@ -136,22 +155,35 @@ public class TickersDataLoader {
           }
         }
       }
-    }
 
-    protected void proceedInsertStatus(AtomicBoolean insertSuccessful) {
-      if (!insertSuccessful.get()) {
+      // TODO: дублирующаяся часть кода, надо подумать, что с ней делать
+      if (!taskFuture.isDone()) {
+        taskFuture.setException(new Exception("FAILED TO INSERT TICKERS DATA"));
         tickerFilesPartition.forEach(
             tickerFile -> {
               if (tickerFile.status != TickerFile.FileStatus.FINISHED) {
                 tickerFile.status = TickerFile.FileStatus.ERROR;
               }
             });
-        System.err.println(this.getClass().getName() + " LOST TICKERS: ");
+        System.err.println(this.getClass().getName() + " LOST TICKERS");
+      }
+    }
+
+    protected void proceedInsertStatus() {
+      try {
+        taskFuture.get();
+        tickerFilesPartition.forEach(
+            tickerFile -> {
+              if (tickerFile.status != TickerFile.FileStatus.FINISHED) {
+                tickerFile.status = TickerFile.FileStatus.ERROR;
+              }
+            });
+      } catch (Exception ignored) {
       }
 
-      WorkersUtil.proceedToUpdateStatus(
+      WorkersUtil.changeTickerFileUpdateStatus(
           clickHouseDAO, tickerFilesPartition, TickerFile.FileStatus.FINISHED);
-      WorkersUtil.proceedToUpdateStatus(
+      WorkersUtil.changeTickerFileUpdateStatus(
           clickHouseDAO, tickerFilesPartition, TickerFile.FileStatus.ERROR);
     }
   }
