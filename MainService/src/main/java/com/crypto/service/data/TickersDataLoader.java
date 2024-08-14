@@ -106,7 +106,6 @@ public class TickersDataLoader {
     @Override
     public void run() {
       startInsertTickers();
-      proceedInsertStatus();
     }
 
     protected void startInsertTickers() {
@@ -156,7 +155,6 @@ public class TickersDataLoader {
         }
       }
 
-      // TODO: дублирующаяся часть кода, надо подумать, что с ней делать
       if (!taskFuture.isDone()) {
         taskFuture.setException(new Exception("FAILED TO INSERT TICKERS DATA"));
         tickerFilesPartition.forEach(
@@ -167,24 +165,6 @@ public class TickersDataLoader {
             });
         System.err.println(this.getClass().getName() + " LOST TICKERS");
       }
-    }
-
-    protected void proceedInsertStatus() {
-      try {
-        taskFuture.get();
-        tickerFilesPartition.forEach(
-            tickerFile -> {
-              if (tickerFile.status != TickerFile.FileStatus.FINISHED) {
-                tickerFile.status = TickerFile.FileStatus.ERROR;
-              }
-            });
-      } catch (Exception ignored) {
-      }
-
-      WorkersUtil.changeTickerFileUpdateStatus(
-          clickHouseDAO, tickerFilesPartition, TickerFile.FileStatus.FINISHED);
-      WorkersUtil.changeTickerFileUpdateStatus(
-          clickHouseDAO, tickerFilesPartition, TickerFile.FileStatus.ERROR);
     }
   }
 }

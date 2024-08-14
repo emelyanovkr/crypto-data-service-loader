@@ -32,7 +32,6 @@ import java.nio.file.*;
 import static java.nio.file.StandardWatchEventKinds.*;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicReference;
 
 // FLOW 1
 @FlowType(firstStep = "RETRIEVE_FILE_NAMES_LIST_ON_START")

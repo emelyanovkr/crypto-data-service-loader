@@ -5,6 +5,7 @@ import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
 import com.crypto.service.data.TickersDataLoader;
+import com.crypto.service.util.WorkersUtil;
 import com.flower.anno.flow.FlowType;
 import com.flower.anno.flow.State;
 import com.flower.anno.functions.SimpleStepFunction;
@@ -16,6 +17,8 @@ import com.flower.conf.Transition;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -28,6 +31,9 @@ import java.util.stream.Collectors;
 // FLOW 3
 @FlowType(firstStep = "RETRIEVE_PREPARED_FILES")
 public class UploadTickerFilesStatusAndDataFlow {
+
+  protected static final Logger LOGGER =
+      LoggerFactory.getLogger(UploadTickerFilesStatusAndDataFlow.class);
 
   @State protected String directoryPath;
   @State protected ClickHouseDAO clickHouseDAO;
@@ -108,21 +114,19 @@ public class UploadTickerFilesStatusAndDataFlow {
 
   @SimpleStepFunction
   static ListenableFuture<Transition> UPLOAD_TICKERS_FILES_DATA(
+      @In(throwIfNull = true) ClickHouseDAO clickHouseDAO,
       @In List<TickerFile> tickerFiles,
       @In List<Path> filePaths,
       @StepRef Transition RETRIEVE_PREPARED_FILES) {
 
     if (tickerFiles.isEmpty()) {
-      // TODO: If list is empty -> return to the init step
+      return Futures.immediateFuture(RETRIEVE_PREPARED_FILES.setDelay(Duration.ofMinutes(1)));
     }
 
     TickersDataLoader dataLoader = new TickersDataLoader(filePaths, tickerFiles);
     ListenableFuture<Map<ListenableFuture<Void>, List<TickerFile>>> uploadTickerFuture =
         dataLoader.uploadTickersData();
 
-    // TODO: по результату значения future выставлять статус для каждого tickerFile
-    // (proceedInsertStatus)
-    // TODO: make a future
     return Futures.transform(
         uploadTickerFuture,
         map -> {
@@ -130,9 +134,12 @@ public class UploadTickerFilesStatusAndDataFlow {
             ListenableFuture<Void> future = ent.getKey();
             try {
               future.get();
-              // TODO : success
+              WorkersUtil.changeTickerFileUpdateStatus(
+                  clickHouseDAO, ent.getValue(), TickerFile.FileStatus.FINISHED);
+              WorkersUtil.changeTickerFileUpdateStatus(
+                  clickHouseDAO, ent.getValue(), TickerFile.FileStatus.ERROR);
             } catch (Exception e) {
-              // TODO : error
+              LOGGER.error("UPLOADING TICKERS DATA FUTURES EXCEPTION - ", e);
             }
           }
           return RETRIEVE_PREPARED_FILES.setDelay(Duration.ofMinutes(1));
