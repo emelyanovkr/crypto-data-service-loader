@@ -1,5 +1,7 @@
 package com.crypto.service.flow;
 
+import com.crypto.service.MainApplication;
+import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.data.TickerFile;
 import com.flower.anno.flow.FlowType;
@@ -38,9 +40,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class SaveNewFilesToDbFlow {
   protected static final Logger LOGGER = LoggerFactory.getLogger(SaveNewFilesToDbFlow.class);
 
-  protected static final int FILES_BUFFER_SIZE = 8192;
-  // TODO: CHANGE THIS TIMEOUT
-  protected static final int DISCOVERY_FILES_TIMEOUT_SEC = 15;
+  protected final MainFlowsConfig mainFlowsConfig;
+  protected static int FILES_BUFFER_SIZE;
+  protected static int DISCOVERY_FILES_TIMEOUT_SEC;
 
   @State protected final ClickHouseDAO clickHouseDAO;
   @State protected final String rootPath;
@@ -51,6 +53,11 @@ public class SaveNewFilesToDbFlow {
   @State protected Long lastFlushTime;
 
   public SaveNewFilesToDbFlow(String rootPath) {
+    mainFlowsConfig = MainApplication.mainFlowsConfig;
+    FILES_BUFFER_SIZE = mainFlowsConfig.getDiscoverNewFilesConfig().getFilesBufferSize();
+    DISCOVERY_FILES_TIMEOUT_SEC =
+        mainFlowsConfig.getDiscoverNewFilesConfig().getFlushDiscoveredFilesTimeoutSec();
+
     this.clickHouseDAO = new ClickHouseDAO();
     this.rootPath = rootPath;
     this.filesBuffer = new LinkedList<>();
@@ -166,7 +173,7 @@ public class SaveNewFilesToDbFlow {
     boolean flushRequired = fileTimeoutElapsed || fileBufferSizeSufficient;
 
     if (flushRequired) {
-      if(filesBuffer.getInValue().isEmpty()) {
+      if (filesBuffer.getInValue().isEmpty()) {
         return POST_FLUSH;
       }
 
@@ -203,7 +210,6 @@ public class SaveNewFilesToDbFlow {
       @StepRef Transition INIT_DIRECTORY_WATCHER_SERVICE,
       @StepRef Transition GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER) {
     // TODO: Determine if we need to reinit watcher
-
     // return
     // INIT_DIRECTORY_WATCHER_SERVICE.setDelay(Duration.ofSeconds(DISCOVERY_FILES_TIMEOUT_SEC));
     return GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER.setDelay(

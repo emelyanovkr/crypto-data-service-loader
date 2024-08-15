@@ -1,10 +1,10 @@
 package com.crypto.service.data;
 
+import com.crypto.service.MainApplication;
+import com.crypto.service.config.TickersDataConfig;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.util.CompressionHandler;
-import com.crypto.service.util.PropertiesLoader;
-import com.crypto.service.util.WorkersUtil;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -24,7 +24,8 @@ public class TickersDataLoader {
   protected final int PARTS_QUANTITY;
   // 2 THREADS is minimum for using PIPED STREAMS
   protected final int THREADS_COUNT;
-  protected final int MAX_FLUSH_ATTEMPTS;
+  protected final int MAX_FLUSH_DATA_ATTEMPTS;
+  protected final int SLEEP_ON_RECONNECT_MS;
 
   protected final ExecutorService insert_executor;
   protected final ExecutorService compression_executor;
@@ -39,16 +40,15 @@ public class TickersDataLoader {
     this.filePaths = new ArrayList<>(filePaths);
     this.tickerFiles = new ArrayList<>(tickerFiles);
 
-    try {
-      Properties projectProperties = PropertiesLoader.loadProjectConfig();
-      MAX_FLUSH_ATTEMPTS = Integer.parseInt(projectProperties.getProperty("max_flush_attempts"));
-      PARTS_QUANTITY =
-          Integer.parseInt(projectProperties.getProperty("data_divided_parts_quantity"));
-      THREADS_COUNT = Math.max(PARTS_QUANTITY / 2, 2);
-    } catch (IllegalArgumentException e) {
-      LOGGER.error("FAILED TO READ PARAMETERS - ", e);
-      throw new RuntimeException(e);
-    }
+    TickersDataConfig tickersDataConfig = MainApplication.tickersDataConfig;
+
+    MAX_FLUSH_DATA_ATTEMPTS =
+        tickersDataConfig.getTickersDataUploaderConfig().getMaxFlushDataAttempts();
+    PARTS_QUANTITY = tickersDataConfig.getTickersDataUploaderConfig().getDivideDataPartsQuantity();
+    SLEEP_ON_RECONNECT_MS =
+        tickersDataConfig.getTickersDataUploaderConfig().getSleepOnReconnectMs();
+
+    THREADS_COUNT = Math.max(PARTS_QUANTITY / 2, 2);
 
     insert_executor = Executors.newFixedThreadPool(THREADS_COUNT);
     compression_executor = Executors.newFixedThreadPool(THREADS_COUNT);
@@ -110,7 +110,7 @@ public class TickersDataLoader {
 
     protected void startInsertTickers() {
       compressionTaskRunning = new AtomicBoolean(false);
-      for (int i = 0; i < MAX_FLUSH_ATTEMPTS; i++) {
+      for (int i = 0; i < MAX_FLUSH_DATA_ATTEMPTS; i++) {
         AtomicBoolean stopCompressionCommand = new AtomicBoolean(false);
 
         PipedOutputStream pout = new PipedOutputStream();
@@ -148,7 +148,7 @@ public class TickersDataLoader {
 
           try {
             pin.close();
-            Thread.sleep(500);
+            Thread.sleep(SLEEP_ON_RECONNECT_MS);
           } catch (InterruptedException | IOException ex) {
             throw new RuntimeException(ex);
           }

@@ -1,6 +1,8 @@
 package com.crypto.service.flow;
 
 import com.clickhouse.client.ClickHouseException;
+import com.crypto.service.MainApplication;
+import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
@@ -24,6 +26,7 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.DecimalFormat;
 import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -35,12 +38,18 @@ public class UploadTickerFilesStatusAndDataFlow {
   protected static final Logger LOGGER =
       LoggerFactory.getLogger(UploadTickerFilesStatusAndDataFlow.class);
 
+  protected final MainFlowsConfig mainFlowsConfig;
+  protected static int WORK_CYCLE_TIME_SEC;
+
   @State protected String directoryPath;
   @State protected ClickHouseDAO clickHouseDAO;
   @State protected List<TickerFile> tickerFiles;
   @State protected List<Path> filePaths;
 
   public UploadTickerFilesStatusAndDataFlow(String directoryPath) {
+    mainFlowsConfig = MainApplication.mainFlowsConfig;
+    WORK_CYCLE_TIME_SEC = mainFlowsConfig.getUploadTickersDataConfig().getWorkCycleTimeSec();
+
     this.directoryPath = directoryPath;
     this.clickHouseDAO = new ClickHouseDAO();
     this.tickerFiles = new ArrayList<>();
@@ -120,10 +129,15 @@ public class UploadTickerFilesStatusAndDataFlow {
       @StepRef Transition RETRIEVE_PREPARED_FILES) {
 
     if (tickerFiles.isEmpty()) {
-      return Futures.immediateFuture(RETRIEVE_PREPARED_FILES.setDelay(Duration.ofMinutes(1)));
+      return Futures.immediateFuture(
+          RETRIEVE_PREPARED_FILES.setDelay(Duration.ofSeconds(WORK_CYCLE_TIME_SEC)));
     }
 
     TickersDataLoader dataLoader = new TickersDataLoader(filePaths, tickerFiles);
+
+    LOGGER.info("Ready to upload {} tickers files data", tickerFiles.size());
+    long uploadingStartTime = System.currentTimeMillis();
+
     ListenableFuture<Map<ListenableFuture<Void>, List<TickerFile>>> uploadTickerFuture =
         dataLoader.uploadTickersData();
 
@@ -142,7 +156,17 @@ public class UploadTickerFilesStatusAndDataFlow {
               LOGGER.error("UPLOADING TICKERS DATA FUTURES EXCEPTION - ", e);
             }
           }
-          return RETRIEVE_PREPARED_FILES.setDelay(Duration.ofMinutes(1));
+
+          DecimalFormat df = new DecimalFormat("0.00");
+          double totalUploadingTime =
+              (double) (System.currentTimeMillis() - uploadingStartTime) / 1000;
+          String totalUploadingTimeStr = df.format(totalUploadingTime);
+
+          LOGGER.info(
+              "Finished uploading {} tickers files data: {} sec.",
+              tickerFiles.size(),
+              totalUploadingTimeStr);
+          return RETRIEVE_PREPARED_FILES.setDelay(Duration.ofSeconds(WORK_CYCLE_TIME_SEC));
         },
         MoreExecutors.directExecutor());
   }

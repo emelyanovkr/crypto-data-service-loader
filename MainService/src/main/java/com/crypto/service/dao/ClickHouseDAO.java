@@ -28,7 +28,8 @@ public class ClickHouseDAO {
     this.client = ClickHouseClient.newInstance(server.getProtocol());
   }
 
-  public List<String> selectExclusiveTickerFilesNames(String data, String tableName) throws ClickHouseException {
+  public List<String> selectExclusiveTickerFilesNames(String data, String tableName)
+      throws ClickHouseException {
     try (ClickHouseResponse response =
         client
             .read(server)

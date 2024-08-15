@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class WorkersUtil {
+
   public static void changeTickerFileUpdateStatus(
       ClickHouseDAO clickHouseDAO, List<TickerFile> tickerFiles, TickerFile.FileStatus status) {
     try {

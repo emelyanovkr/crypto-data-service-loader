@@ -1,6 +1,8 @@
 package com.crypto.service.flow;
 
 import com.clickhouse.client.ClickHouseException;
+import com.crypto.service.MainApplication;
+import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
@@ -26,10 +28,16 @@ import java.util.List;
 public class ProceedFilesStatusFlow {
   protected static final Logger LOGGER = LoggerFactory.getLogger(ProceedFilesStatusFlow.class);
 
+  protected final MainFlowsConfig mainFlowsConfig;
+  protected static int WORK_CYCLE_TIME_SEC;
+
   @State protected final ClickHouseDAO clickHouseDAO;
   @State protected List<TickerFile> tickerFiles;
 
   public ProceedFilesStatusFlow() {
+    mainFlowsConfig = MainApplication.mainFlowsConfig;
+    WORK_CYCLE_TIME_SEC = mainFlowsConfig.getProceedFilesStatusConfig().getWorkCycleTimeSec();
+
     this.clickHouseDAO = new ClickHouseDAO();
     this.tickerFiles = new ArrayList<>();
   }
@@ -80,6 +88,6 @@ public class ProceedFilesStatusFlow {
       LOGGER.info("Processed {} ticker files", changesCounter);
     }
 
-    return RETRIEVE_TICKER_FILES_INFO.setDelay(Duration.ofSeconds(15));
+    return RETRIEVE_TICKER_FILES_INFO.setDelay(Duration.ofSeconds(WORK_CYCLE_TIME_SEC));
   }
 }
