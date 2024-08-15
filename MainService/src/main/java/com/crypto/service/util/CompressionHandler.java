@@ -1,5 +1,7 @@
 package com.crypto.service.util;
 
+import com.crypto.service.MainApplication;
+import com.crypto.service.config.TickersDataConfig;
 import com.crypto.service.data.TickerFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,11 +12,12 @@ import java.nio.file.Path;
 import java.text.DecimalFormat;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.GZIPOutputStream;
 
 public class CompressionHandler {
-  protected final int BUFFER_SIZE = 131072;
+  protected final int BUFFER_SIZE;
   protected final PipedOutputStream pout;
   protected final Logger LOGGER = LoggerFactory.getLogger(CompressionHandler.class);
 
@@ -26,6 +29,9 @@ public class CompressionHandler {
     this.pout = pout;
     this.taskRunningStatus = taskRunningStatus;
     this.stopCommand = stopCommand;
+
+    TickersDataConfig tickersDataConfig = MainApplication.applicationConfig.getTickersDataConfig();
+    BUFFER_SIZE = tickersDataConfig.getCompressionHandlerConfig().getCompressionBufferSize();
   }
 
   public static CompressionHandler createCompressionHandler(
@@ -57,13 +63,15 @@ public class CompressionHandler {
               totalDataCompressedSize += n;
             }
 
-            // TODO: NULL CHECK?
-            TickerFile representingFile =
+            Optional<TickerFile> representingFile =
                 tickerFiles.stream()
                     .filter(tickerFile -> tickerFile.getFileName().equals(fileName))
-                    .findFirst()
-                    .get();
-            representingFile.setStatus(TickerFile.FileStatus.FINISHED);
+                    .findFirst();
+            if (representingFile.isPresent()) {
+              representingFile.get().setStatus(TickerFile.FileStatus.FINISHED);
+            } else {
+              LOGGER.error("REPRESENTING FILE IS MISSING - {}", fileName);
+            }
 
           } catch (IOException e) {
 

@@ -1,0 +1,32 @@
+DatabaseConfig:
+    host:
+    port:
+    username:
+    password:
+    database:
+    ssl: true
+    customHttpParams: async_insert=1, wait_for_async_insert=1
+    socketTimeout: 300000
+    socketKeepAlive: true
+    connectTimeout: 5000
+
+TickersDataConfig:
+    TickersDataUploaderConfig:
+        maxFlushDataAttempts: 3
+        divideDataPartsQuantity: 32
+        tickersDataPath:
+        sleepOnReconnectMs: 500
+
+    CompressionHandlerConfig:
+        compressionBufferSize: 131072
+
+MainFlowsConfig:
+    DiscoverNewFilesConfig:
+        filesBufferSize: 8192
+        flushDiscoveredFilesTimeoutSec: 15 # almost the same as work_cycle_time_sec
+
+    ProceedFilesStatusConfig:
+        workCycleTimeSec: 30
+
+    UploadTickersDataConfig:
+        workCycleTimeSec: 60

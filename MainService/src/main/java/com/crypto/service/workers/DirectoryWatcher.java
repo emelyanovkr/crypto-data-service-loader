@@ -1,6 +1,8 @@
 package com.crypto.service.workers;
 
 import com.crypto.service.data.TickerFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -13,9 +15,11 @@ import java.util.concurrent.locks.ReentrantLock;
 import static java.nio.file.StandardWatchEventKinds.*;
 
 public class DirectoryWatcher implements Runnable {
+  protected final Logger LOGGER = LoggerFactory.getLogger(DirectoryWatcher.class);
+
   protected static final int FILES_BUFFER_SIZE = 8192;
   // TODO: CHANGE THIS TIMEOUT
-  protected static final int DISCOVERY_FILES_TIMEOUT_SEC = 15;
+  protected static final int DISCOVERY_FILES_TIMEOUT_SEC = 5;
 
   protected final String directoryPath;
 
@@ -58,8 +62,6 @@ public class DirectoryWatcher implements Runnable {
           filesBufferLock.unlock();
         }
 
-        // TODO: DEBUG PRINT
-        System.out.println("GOING TO FLUSH");
         lastFlushTime = System.currentTimeMillis();
         startDiscoveryWorker(filesBufferToFlush);
       } else {
@@ -67,6 +69,7 @@ public class DirectoryWatcher implements Runnable {
           // TODO: TO look over time
           Thread.sleep(100);
         } catch (InterruptedException e) {
+          LOGGER.error("Thread interrupted", e);
           throw new RuntimeException(e);
         }
       }
@@ -90,13 +93,14 @@ public class DirectoryWatcher implements Runnable {
 
       watchedDirectory.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
 
-      System.out.println("Directory watcher started: " + watchedDirectory);
+      LOGGER.info("Directory watcher started - {}", watchedDirectory);
 
       while (true) {
         WatchKey key;
         try {
           key = watcher.take();
         } catch (InterruptedException e) {
+          LOGGER.error("Thread interrupted at KEY TAKE", e);
           throw new RuntimeException(e);
         }
 
@@ -108,11 +112,12 @@ public class DirectoryWatcher implements Runnable {
 
             if (kind == ENTRY_CREATE) {
               filesBuffer.add(new TickerFile(event.context().toString(), LocalDate.now(), null));
-            } else if (kind == ENTRY_DELETE) {
-              System.out.println("ENTRY DELETED: " + event.context().toString());
-            } else if (kind == ENTRY_MODIFY) {
-              System.out.println("ENTRY MODIFIED: " + event.context().toString());
             }
+            // else if (kind == ENTRY_DELETE) {
+            //   System.out.println("ENTRY DELETED: " + event.context().toString());
+            // } else if (kind == ENTRY_MODIFY) {
+            //   System.out.println("ENTRY MODIFIED: " + event.context().toString());
+            // }
           }
         } finally {
           filesBufferLock.unlock();
@@ -124,6 +129,7 @@ public class DirectoryWatcher implements Runnable {
         }
       }
     } catch (IOException e) {
+      LOGGER.error("ERROR WATCHING DIRECTORY - ", e);
       throw new RuntimeException(e);
     }
   }

@@ -5,12 +5,15 @@ import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
 import com.crypto.service.util.WorkersUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ProcessingWorker implements Runnable {
+  protected final Logger LOGGER = LoggerFactory.getLogger(ProcessingWorker.class);
 
   protected ClickHouseDAO clickHouseDAO;
   protected List<TickerFile> tickerFiles;
@@ -34,6 +37,7 @@ public class ProcessingWorker implements Runnable {
               TickerFile.FileStatus.DISCOVERED,
               TickerFile.FileStatus.DOWNLOADING);
     } catch (ClickHouseException e) {
+      LOGGER.error("ERROR RETRIEVING TICKER_FILES - ", e);
       throw new RuntimeException(e);
     }
   }
@@ -54,8 +58,8 @@ public class ProcessingWorker implements Runnable {
     }
 
     if (changesCounter > 0) {
-      WorkersUtil.proceedToUpdateStatus(clickHouseDAO, tickerFiles, TickerFile.FileStatus.DOWNLOADING);
-      WorkersUtil.proceedToUpdateStatus(clickHouseDAO, tickerFiles, TickerFile.FileStatus.READY_FOR_PROCESSING);
+      WorkersUtil.changeTickerFileUpdateStatus(clickHouseDAO, tickerFiles, TickerFile.FileStatus.DOWNLOADING);
+      WorkersUtil.changeTickerFileUpdateStatus(clickHouseDAO, tickerFiles, TickerFile.FileStatus.READY_FOR_PROCESSING);
     }
   }
 }

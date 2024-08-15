@@ -5,28 +5,27 @@ import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseProtocol;
 import com.clickhouse.client.config.ClickHouseClientOption;
 import com.clickhouse.client.http.config.ClickHouseHttpOption;
-import java.util.Properties;
+import com.crypto.service.MainApplication;
+import com.crypto.service.config.DatabaseConfig;
 
 public class ConnectionHandler {
 
   public static ClickHouseNode initClickHouseConnection() {
-    Properties properties = PropertiesLoader.loadProjectConfig();
-    return initClickHouseConnection(properties);
+    DatabaseConfig databaseConfig = MainApplication.applicationConfig.getDatabaseConfig();
+    return initClickHouseConnection(databaseConfig);
   }
 
-  public static ClickHouseNode initClickHouseConnection(Properties properties) {
-    String host = properties.getProperty("HOST");
-    int port = Integer.parseInt(properties.getProperty("PORT"));
-    String database = properties.getProperty("DATABASE");
-    String username = properties.getProperty("USERNAME");
-    String password = properties.getProperty("PASSWORD");
-    String ssl = properties.getProperty("SSL");
-    String customParams = properties.getProperty(ClickHouseHttpOption.CUSTOM_PARAMS.getKey());
-    String socketTimeout = properties.getProperty(ClickHouseClientOption.SOCKET_TIMEOUT.getKey());
-    String socketKeepAlive =
-        properties.getProperty(ClickHouseClientOption.SOCKET_KEEPALIVE.getKey());
-    String connectionTimeout =
-        properties.getProperty(ClickHouseClientOption.CONNECTION_TIMEOUT.getKey());
+  public static ClickHouseNode initClickHouseConnection(DatabaseConfig databaseConfig) {
+    String host = databaseConfig.getHost();
+    int port = databaseConfig.getPort();
+    String database = databaseConfig.getDatabase();
+    String username = databaseConfig.getUsername();
+    String password = databaseConfig.getPassword();
+    String ssl = databaseConfig.getSsl();
+    String customParams = databaseConfig.getCustomHttpParams();
+    String socketTimeout = databaseConfig.getSocketTimeout();
+    String socketKeepAlive = databaseConfig.getSocketKeepAlive();
+    String connectionTimeout = databaseConfig.getConnectTimeout();
 
     return initClickHouseConnection(
         host,

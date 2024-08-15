@@ -2,6 +2,7 @@ package com.crypto.service.data;
 
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class TickerFile {
@@ -62,5 +63,20 @@ public class TickerFile {
         .map(TickerFile::getFileName)
         .map(name -> "'" + name + "'")
         .collect(Collectors.joining(","));
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    TickerFile that = (TickerFile) o;
+    return Objects.equals(fileName, that.fileName)
+        && Objects.equals(createDate, that.createDate)
+        && status == that.status;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(fileName, createDate, status);
   }
 }
