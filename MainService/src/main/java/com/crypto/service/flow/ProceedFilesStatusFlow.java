@@ -43,7 +43,7 @@ public class ProceedFilesStatusFlow {
   }
 
   @SimpleStepFunction
-  static Transition RETRIEVE_TICKER_FILES_INFO(
+  public static Transition RETRIEVE_TICKER_FILES_INFO(
       @In(throwIfNull = true) ClickHouseDAO clickHouseDAO,
       @Out OutPrm<List<TickerFile>> tickerFiles,
       @StepRef Transition PROCEED_FILES_STATUS) {
@@ -61,7 +61,7 @@ public class ProceedFilesStatusFlow {
   }
 
   @SimpleStepFunction
-  static Transition PROCEED_FILES_STATUS(
+  public static Transition PROCEED_FILES_STATUS(
       @In ClickHouseDAO clickHouseDAO,
       @In List<TickerFile> tickerFiles,
       @StepRef Transition RETRIEVE_TICKER_FILES_INFO) {

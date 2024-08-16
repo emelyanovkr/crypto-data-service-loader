@@ -56,7 +56,7 @@ public class UploadTickerFilesStatusAndDataFlow {
   }
 
   @SimpleStepFunction
-  static Transition RETRIEVE_PREPARED_FILES(
+  public static Transition RETRIEVE_PREPARED_FILES(
       @Out OutPrm<List<TickerFile>> tickerFiles,
       @In(throwIfNull = true) ClickHouseDAO clickHouseDAO,
       @StepRef Transition FILL_PATHS_LIST) {
@@ -80,7 +80,7 @@ public class UploadTickerFilesStatusAndDataFlow {
   }
 
   @SimpleStepFunction
-  static Transition FILL_PATHS_LIST(
+  public static Transition FILL_PATHS_LIST(
       @In List<TickerFile> tickerFiles,
       @Out OutPrm<List<Path>> filePaths,
       @In(throwIfNull = true) String directoryPath,
@@ -122,7 +122,7 @@ public class UploadTickerFilesStatusAndDataFlow {
   }
 
   @SimpleStepFunction
-  static ListenableFuture<Transition> UPLOAD_TICKERS_FILES_DATA(
+  public static ListenableFuture<Transition> UPLOAD_TICKERS_FILES_DATA(
       @In(throwIfNull = true) ClickHouseDAO clickHouseDAO,
       @In List<TickerFile> tickerFiles,
       @In List<Path> filePaths,
