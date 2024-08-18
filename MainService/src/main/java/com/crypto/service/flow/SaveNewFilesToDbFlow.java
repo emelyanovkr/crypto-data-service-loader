@@ -39,6 +39,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @FlowType(firstStep = "RETRIEVE_FILE_NAMES_LIST_ON_START")
 public class SaveNewFilesToDbFlow {
   protected static final Logger LOGGER = LoggerFactory.getLogger(SaveNewFilesToDbFlow.class);
+  private static WatchService watcherService;
 
   protected final MainFlowsConfig mainFlowsConfig;
   protected static int FILES_BUFFER_SIZE;
@@ -125,6 +126,7 @@ public class SaveNewFilesToDbFlow {
     LOGGER.info("Directory watcher started - {}", watchedDirectory);
 
     watcher.setOutValue(watcherService);
+
     return GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER;
   }
 
