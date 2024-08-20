@@ -27,6 +27,9 @@ public class ProceedFilesStatusFlowTest {
   @Mock private ClickHouseDAO clickHouseDAO;
   @Mock private Transition RETRIEVE_TICKER_FILES_INFO;
 
+  private static final String TEST_FILE_A = "0000A";
+  private static final String TEST_FILE_B = "0000B";
+
   @BeforeEach
   public void setUp() {}
 
@@ -38,9 +41,9 @@ public class ProceedFilesStatusFlowTest {
           new ArrayList<>(
               List.of(
                   new TickerFile(
-                      "0000A", LocalDate.now(), DISCOVERED), // Status should be set for DOWNLOADING
+                    TEST_FILE_A, LocalDate.now(), DISCOVERED), // Status should be set for DOWNLOADING
                   new TickerFile(
-                      "0000B",
+                    TEST_FILE_B,
                       LocalDate.now(),
                       TickerFile.FileStatus.ERROR) // Status should be leaved as it is
                   ));
@@ -65,11 +68,11 @@ public class ProceedFilesStatusFlowTest {
           new ArrayList<>(
               List.of(
                   new TickerFile(
-                      "0000A",
+                    TEST_FILE_A,
                       LocalDate.now().minusDays(5),
                       DISCOVERED), // Status should be set for READY_FOR_PROCESSING
                   new TickerFile(
-                      "0000B",
+                    TEST_FILE_B,
                       LocalDate.now(),
                       TickerFile.FileStatus.ERROR) // Status should be leaved as it is
                   ));
