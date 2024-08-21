@@ -35,12 +35,13 @@ public class TickersDataLoader {
   protected final List<Path> filePaths;
   protected List<TickerFile> tickerFiles;
   protected ClickHouseDAO clickHouseDAO;
+  protected TickersDataConfig tickersDataConfig;
 
   public TickersDataLoader(List<Path> filePaths, List<TickerFile> tickerFiles) {
     this.filePaths = new ArrayList<>(filePaths);
     this.tickerFiles = new ArrayList<>(tickerFiles);
 
-    TickersDataConfig tickersDataConfig = MainApplication.tickersDataConfig;
+    tickersDataConfig = MainApplication.tickersDataConfig;
 
     MAX_FLUSH_DATA_ATTEMPTS =
         tickersDataConfig.getTickersDataUploaderConfig().getMaxFlushDataAttempts();

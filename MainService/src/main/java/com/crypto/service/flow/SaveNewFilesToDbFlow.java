@@ -39,6 +39,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @FlowType(firstStep = "RETRIEVE_FILE_NAMES_LIST_ON_START")
 public class SaveNewFilesToDbFlow {
   protected static final Logger LOGGER = LoggerFactory.getLogger(SaveNewFilesToDbFlow.class);
+  private static WatchService watcherService;
 
   protected final MainFlowsConfig mainFlowsConfig;
   protected static int FILES_BUFFER_SIZE;
@@ -69,7 +70,7 @@ public class SaveNewFilesToDbFlow {
    * before start
    */
   @SimpleStepFunction
-  static Transition RETRIEVE_FILE_NAMES_LIST_ON_START(
+  public static Transition RETRIEVE_FILE_NAMES_LIST_ON_START(
       @In ClickHouseDAO clickHouseDAO,
       @In String rootPath,
       @Out OutPrm<Queue<TickerFile>> filesBuffer,
@@ -109,7 +110,7 @@ public class SaveNewFilesToDbFlow {
   }
 
   @SimpleStepFunction
-  static Transition INIT_DIRECTORY_WATCHER_SERVICE(
+  public static Transition INIT_DIRECTORY_WATCHER_SERVICE(
       @In String rootPath,
       @Out OutPrm<WatchService> watcher,
       @StepRef Transition GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER)
@@ -125,11 +126,12 @@ public class SaveNewFilesToDbFlow {
     LOGGER.info("Directory watcher started - {}", watchedDirectory);
 
     watcher.setOutValue(watcherService);
+
     return GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER;
   }
 
   @SimpleStepFunction
-  static Transition GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER(
+  public static Transition GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER(
       @In WatchService watcher,
       @In Queue<TickerFile> filesBuffer,
       @StepRef Transition TRY_TO_FLUSH_BUFFER)
@@ -160,7 +162,7 @@ public class SaveNewFilesToDbFlow {
   }
 
   @SimpleStepFunction
-  static Transition TRY_TO_FLUSH_BUFFER(
+  public static Transition TRY_TO_FLUSH_BUFFER(
       @In ClickHouseDAO clickHouseDAO,
       @InOut(out = Output.OPTIONAL) NullableInOutPrm<Long> lastFlushTime,
       @InOut(out = Output.OPTIONAL) InOutPrm<Queue<TickerFile>> filesBuffer,
@@ -206,7 +208,7 @@ public class SaveNewFilesToDbFlow {
   }
 
   @SimpleStepFunction
-  static Transition POST_FLUSH(
+  public static Transition POST_FLUSH(
       @StepRef Transition INIT_DIRECTORY_WATCHER_SERVICE,
       @StepRef Transition GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER) {
     // TODO: Determine if we need to reinit watcher

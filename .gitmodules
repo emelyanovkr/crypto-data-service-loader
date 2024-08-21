@@ -1,6 +1,8 @@
 [submodule "flower"]
 	path = flower
 	url = https://github.com/emelyanovkr/flower.git
+	branch = master
 [submodule "ClickHouseAppender"]
 	path = ClickHouseAppender
 	url = https://github.com/emelyanovkr/ClickHouseAppender.git
+	branch = main
