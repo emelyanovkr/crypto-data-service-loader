@@ -52,7 +52,6 @@ public class TickersDataLoaderTest {
 
   @BeforeEach
   public void setUp() throws ClickHouseException {
-
     ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 

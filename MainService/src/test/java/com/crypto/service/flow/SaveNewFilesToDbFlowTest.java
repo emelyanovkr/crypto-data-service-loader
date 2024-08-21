@@ -61,10 +61,8 @@ public class SaveNewFilesToDbFlowTest {
     }
   }
 
-  // TODO: consider to move in test_util package duplicate code
   @BeforeEach
   public void setUp() {
-
     ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
