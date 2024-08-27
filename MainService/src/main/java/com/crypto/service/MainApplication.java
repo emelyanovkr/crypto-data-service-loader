@@ -4,6 +4,7 @@ import com.crypto.service.config.ApplicationConfig;
 import com.crypto.service.config.DatabaseConfig;
 import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.config.TickersDataConfig;
+import com.crypto.service.flow.CleanupUploadedFilesFlow;
 import com.crypto.service.flow.ProceedFilesStatusFlow;
 import com.crypto.service.flow.SaveNewFilesToDbFlow;
 import com.crypto.service.flow.UploadTickerFilesStatusAndDataFlow;
@@ -59,6 +60,7 @@ public class MainApplication {
     flower.registerFlow(SaveNewFilesToDbFlow.class);
     flower.registerFlow(ProceedFilesStatusFlow.class);
     flower.registerFlow(UploadTickerFilesStatusAndDataFlow.class);
+    flower.registerFlow(CleanupUploadedFilesFlow.class);
     flower.initialize();
 
     FlowExec<SaveNewFilesToDbFlow> saveFilesExec = flower.getFlowExec(SaveNewFilesToDbFlow.class);
@@ -75,6 +77,11 @@ public class MainApplication {
     FlowFuture<UploadTickerFilesStatusAndDataFlow> uploadFilesFuture =
         uploadFilesExec.runFlow(new UploadTickerFilesStatusAndDataFlow(DATA_PATH));
 
+    FlowExec<CleanupUploadedFilesFlow> cleanUpFilesExec =
+        flower.getFlowExec(CleanupUploadedFilesFlow.class);
+    FlowFuture<CleanupUploadedFilesFlow> cleanUpFilesFuture =
+        cleanUpFilesExec.runFlow(new CleanupUploadedFilesFlow(DATA_PATH));
+
     try {
       SaveNewFilesToDbFlow saveState = saveFilesFuture.getFuture().get();
       ProceedFilesStatusFlow proceedState = proceedFilesFuture.getFuture().get();
@@ -82,20 +89,5 @@ public class MainApplication {
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  @Deprecated
-  public static void startWorkers() {
-    // PreparingWorker preparingWorker = new PreparingWorker(DATA_PATH);
-    // Thread preparingThread = new Thread(preparingWorker, "PREPARING-WORKER-THREAD");
-    // preparingThread.start();
-
-    // ProcessingWorker processingWorker = new ProcessingWorker();
-    // Thread processingThread = new Thread(processingWorker);
-    // processingThread.start();
-
-    // UploaderWorker preparingWorker = new UploaderWorker(DATA_PATH);
-    // Thread preparingThread = new Thread(preparingWorker);
-    // preparingThread.start();
   }
 }

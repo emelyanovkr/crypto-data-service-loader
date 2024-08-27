@@ -47,6 +47,44 @@ public class ClickHouseDAO {
     }
   }
 
+  // TODO: CONSIDER ONE OF THE METHODS
+  public List<TickerFile> selectTickerFilesOnSpecifiedDate(
+      String tableName, String column, LocalDate date) throws ClickHouseException {
+    String convertedInputData = "'" + date.toString() + "'";
+    try (ClickHouseResponse response =
+        client
+            .read(server)
+            .query("SELECT * FROM :tableName WHERE :column = :date")
+            .params(List.of(tableName, column, convertedInputData))
+            .executeAndWait()) {
+      Iterable<ClickHouseRecord> records = response.records();
+      List<TickerFile> tickerFiles = new ArrayList<>();
+      for (ClickHouseRecord record : records) {
+        String fileRecord = record.getValue(0).asString();
+        String[] parsedData = fileRecord.split("\t");
+        tickerFiles.add(
+            new TickerFile(
+                parsedData[0],
+                LocalDate.parse(parsedData[1].split(" ")[0]),
+                TickerFile.FileStatus.parseStatus(parsedData[2])));
+      }
+      return tickerFiles;
+    }
+  }
+  // TODO: CONSIDER ONE OF THE METHODS
+  public String selectFileStatusOnFilename(String tableName, String filename)
+      throws ClickHouseException {
+    String sqlFilename = "'" + filename + "'";
+    try (ClickHouseResponse response =
+        client
+            .read(server)
+            .query("SELECT status FROM :tableName WHERE filename = :filename")
+            .params(List.of(tableName, sqlFilename))
+            .executeAndWait()) {
+      return response.firstRecord().getValue(0).asString();
+    }
+  }
+
   public List<TickerFile> selectTickerFilesNamesOnStatus(
       String tableName, TickerFile.FileStatus... statuses) throws ClickHouseException {
     StringJoiner joiner = new StringJoiner(",");
@@ -84,6 +122,19 @@ public class ClickHouseDAO {
             .read(server)
             .query("SELECT MAX(:columName) FROM :tableName")
             .params(List.of(columnName, tableName))
+            .executeAndWait()) {
+      return response.firstRecord().getValue(0).asDateTime().toLocalDate();
+    }
+  }
+
+  public LocalDate selectFinishedTickerFilesDate(
+      String function, String columnName, String tableName, TickerFile.FileStatus status)
+      throws ClickHouseException {
+    try (ClickHouseResponse response =
+        client
+            .read(server)
+            .query("SELECT :function (:columnName) FROM :tableName WHERE status = :status")
+            .params(List.of(function, columnName, tableName, status.getSQLStatus()))
             .executeAndWait()) {
       return response.firstRecord().getValue(0).asDateTime().toLocalDate();
     }
