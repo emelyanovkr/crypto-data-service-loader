@@ -30,9 +30,6 @@ public class ProceedFilesStatusFlowTest {
   private static final String TEST_FILE_A = "0000A";
   private static final String TEST_FILE_B = "0000B";
 
-  @BeforeEach
-  public void setUp() {}
-
   // Testing RETRIEVE_TICKER_FILES_INFO flow
   @Test
   public void fileStatusSetDownloadingForTodayDateFiles() {

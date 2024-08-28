@@ -14,10 +14,12 @@ import com.flower.anno.params.common.Out;
 import com.flower.anno.params.transit.StepRef;
 import com.flower.conf.OutPrm;
 import com.flower.conf.Transition;
+import com.google.common.io.Resources;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,7 +35,20 @@ public class CleanupUploadedFilesFlow {
   protected static final Logger LOGGER = LoggerFactory.getLogger(CleanupUploadedFilesFlow.class);
   protected final MainFlowsConfig mainFlowsConfig;
   protected static int WORK_CYCLE_TIME_HOURS;
+
   protected static final String CREATE_DATE_COLUMN = "create_date";
+  protected static final String MIN_SQL_FUNCTION_NAME = "MIN";
+  protected static final String MAX_SQL_FUNCTION_NAME = "MAX";
+
+  private static final String TEST_DATA_PATH;
+
+  static {
+    try {
+      TEST_DATA_PATH = Paths.get(Resources.getResource("TestData").toURI()).toString();
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   @State protected ClickHouseDAO clickHouseDAO;
   @State protected final String rootPath;
@@ -61,17 +76,16 @@ public class CleanupUploadedFilesFlow {
     try {
       firstFileUploadDateAcquired =
           clickHouseDAO.selectFinishedTickerFilesDate(
-              "MIN",
+              MIN_SQL_FUNCTION_NAME,
               CREATE_DATE_COLUMN,
               Tables.TICKER_FILES.getTableName(),
               TickerFile.FileStatus.FINISHED);
       lastFileUploadDateAcquired =
           clickHouseDAO.selectFinishedTickerFilesDate(
-              "MAX",
+              MAX_SQL_FUNCTION_NAME,
               CREATE_DATE_COLUMN,
               Tables.TICKER_FILES.getTableName(),
               TickerFile.FileStatus.FINISHED);
-
     } catch (Exception e) {
       LOGGER.error("ERROR ACQUIRING MIN TICKER FILES DATE - ", e);
       throw new RuntimeException(e);
