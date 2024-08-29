@@ -65,22 +65,22 @@ public class MainApplication {
 
     FlowExec<SaveNewFilesToDbFlow> saveFilesExec = flower.getFlowExec(SaveNewFilesToDbFlow.class);
     FlowFuture<SaveNewFilesToDbFlow> saveFilesFuture =
-        saveFilesExec.runFlow(new SaveNewFilesToDbFlow(DATA_PATH));
+        saveFilesExec.runFlow(new SaveNewFilesToDbFlow(mainFlowsConfig, DATA_PATH));
 
     FlowExec<ProceedFilesStatusFlow> proceedFilesExec =
         flower.getFlowExec(ProceedFilesStatusFlow.class);
     FlowFuture<ProceedFilesStatusFlow> proceedFilesFuture =
-        proceedFilesExec.runFlow(new ProceedFilesStatusFlow());
+        proceedFilesExec.runFlow(new ProceedFilesStatusFlow(mainFlowsConfig));
 
     FlowExec<UploadTickerFilesStatusAndDataFlow> uploadFilesExec =
         flower.getFlowExec(UploadTickerFilesStatusAndDataFlow.class);
     FlowFuture<UploadTickerFilesStatusAndDataFlow> uploadFilesFuture =
-        uploadFilesExec.runFlow(new UploadTickerFilesStatusAndDataFlow(DATA_PATH));
+        uploadFilesExec.runFlow(new UploadTickerFilesStatusAndDataFlow(mainFlowsConfig, DATA_PATH));
 
     FlowExec<CleanupUploadedFilesFlow> cleanUpFilesExec =
         flower.getFlowExec(CleanupUploadedFilesFlow.class);
     FlowFuture<CleanupUploadedFilesFlow> cleanUpFilesFuture =
-        cleanUpFilesExec.runFlow(new CleanupUploadedFilesFlow(DATA_PATH));
+        cleanUpFilesExec.runFlow(new CleanupUploadedFilesFlow(mainFlowsConfig, DATA_PATH));
 
     try {
       SaveNewFilesToDbFlow saveState = saveFilesFuture.getFuture().get();

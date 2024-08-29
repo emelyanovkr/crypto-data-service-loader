@@ -46,8 +46,8 @@ public class UploadTickerFilesStatusAndDataFlow {
   @State protected List<TickerFile> tickerFiles;
   @State protected List<Path> filePaths;
 
-  public UploadTickerFilesStatusAndDataFlow(String directoryPath) {
-    mainFlowsConfig = MainApplication.mainFlowsConfig;
+  public UploadTickerFilesStatusAndDataFlow(MainFlowsConfig mainFlowsConfig, String directoryPath) {
+    this.mainFlowsConfig = mainFlowsConfig;
     WORK_CYCLE_TIME_SEC = mainFlowsConfig.getUploadTickersDataConfig().getWorkCycleTimeSec();
 
     this.directoryPath = directoryPath;

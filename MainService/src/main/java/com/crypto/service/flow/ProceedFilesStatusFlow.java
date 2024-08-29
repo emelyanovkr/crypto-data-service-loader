@@ -34,8 +34,8 @@ public class ProceedFilesStatusFlow {
   @State protected final ClickHouseDAO clickHouseDAO;
   @State protected List<TickerFile> tickerFiles;
 
-  public ProceedFilesStatusFlow() {
-    mainFlowsConfig = MainApplication.mainFlowsConfig;
+  public ProceedFilesStatusFlow(MainFlowsConfig mainFlowsConfig) {
+    this.mainFlowsConfig = mainFlowsConfig;
     WORK_CYCLE_TIME_SEC = mainFlowsConfig.getProceedFilesStatusConfig().getWorkCycleTimeSec();
 
     this.clickHouseDAO = new ClickHouseDAO();

@@ -48,12 +48,15 @@ public class UploadTickerFilesStatusAndDataFlowTest {
   @Mock Transition UPLOAD_TICKERS_FILES_DATA;
   @Mock Transition FILL_PATHS_LIST;
 
+  // Checking that clickhouseDAO called with correct parameters
   @Test
   public void clickhouseDaoCalledWithRightParametersForUpdatingFileStatuses() {
     List<TickerFile> testData =
         List.of(
-            new TickerFile(TEST_FILE_A, LocalDate.now(), TickerFile.FileStatus.READY_FOR_PROCESSING),
-            new TickerFile(TEST_FILE_C, LocalDate.now(), TickerFile.FileStatus.READY_FOR_PROCESSING));
+            new TickerFile(
+                TEST_FILE_A, LocalDate.now(), TickerFile.FileStatus.READY_FOR_PROCESSING),
+            new TickerFile(
+                TEST_FILE_C, LocalDate.now(), TickerFile.FileStatus.READY_FOR_PROCESSING));
     try {
       when(clickHouseDAO.selectTickerFilesNamesOnStatus(anyString(), any())).thenReturn(testData);
       FlowerOutPrm<List<TickerFile>> tickerFiles = new FlowerOutPrm<>();
@@ -72,7 +75,7 @@ public class UploadTickerFilesStatusAndDataFlowTest {
     }
   }
 
-  // Testing FILL_PATHS_LIST step
+  // FILL_PATHS_LIST should correctly resolve paths for all files
   @Test
   public void fillPathsListReturnsCorrectPaths() {
     List<TickerFile> testFiles =
@@ -85,7 +88,6 @@ public class UploadTickerFilesStatusAndDataFlowTest {
 
     Path TEST_DIR_SIX = Paths.get(TEST_DATA_PATH, LocalDate.of(2024, Month.AUGUST, 6).toString());
     Path TEST_DIR_TEN = Paths.get(TEST_DATA_PATH, LocalDate.of(2024, Month.AUGUST, 10).toString());
-
     try {
       Files.createDirectory(TEST_DIR_SIX);
       Files.createDirectory(TEST_DIR_TEN);

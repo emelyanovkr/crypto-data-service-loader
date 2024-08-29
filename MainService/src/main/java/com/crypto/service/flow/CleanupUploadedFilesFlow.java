@@ -1,7 +1,6 @@
 package com.crypto.service.flow;
 
 import com.clickhouse.client.ClickHouseException;
-import com.crypto.service.MainApplication;
 import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
@@ -14,12 +13,10 @@ import com.flower.anno.params.common.Out;
 import com.flower.anno.params.transit.StepRef;
 import com.flower.conf.OutPrm;
 import com.flower.conf.Transition;
-import com.google.common.io.Resources;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,11 +25,13 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 // FLOW 4
 @FlowType(firstStep = "PREPARE_TO_CLEAN_FILES")
 public class CleanupUploadedFilesFlow {
   protected static final Logger LOGGER = LoggerFactory.getLogger(CleanupUploadedFilesFlow.class);
+
   protected final MainFlowsConfig mainFlowsConfig;
   protected static int WORK_CYCLE_TIME_HOURS;
 
@@ -40,23 +39,13 @@ public class CleanupUploadedFilesFlow {
   protected static final String MIN_SQL_FUNCTION_NAME = "MIN";
   protected static final String MAX_SQL_FUNCTION_NAME = "MAX";
 
-  private static final String TEST_DATA_PATH;
-
-  static {
-    try {
-      TEST_DATA_PATH = Paths.get(Resources.getResource("TestData").toURI()).toString();
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   @State protected ClickHouseDAO clickHouseDAO;
   @State protected final String rootPath;
   @State protected LocalDate firstDateOfUploadedFile;
   @State protected LocalDate lastDateOfUploadedFile;
 
-  public CleanupUploadedFilesFlow(String rootPath) {
-    mainFlowsConfig = MainApplication.mainFlowsConfig;
+  public CleanupUploadedFilesFlow(MainFlowsConfig mainFLowsConfig, String rootPath) {
+    this.mainFlowsConfig = mainFLowsConfig;
     WORK_CYCLE_TIME_HOURS = mainFlowsConfig.getCleanupUploadedFilesConfig().getWorkCycleTimeHours();
 
     this.clickHouseDAO = new ClickHouseDAO();
@@ -129,11 +118,11 @@ public class CleanupUploadedFilesFlow {
 
       List<String> deletedDirectories = new ArrayList<>();
 
-      for (Path entry : stream) {
-        LocalDate directoryDate = LocalDate.parse(entry.getFileName().toString());
+      for (Path dateDir : stream) {
+        LocalDate directoryDate = LocalDate.parse(dateDir.getFileName().toString());
         if (directoryDate.plusDays(1).isBefore(lastDateOfUploadedFile)) {
           try (DirectoryStream<Path> fileStream =
-              Files.newDirectoryStream(entry, Files::isRegularFile)) {
+              Files.newDirectoryStream(dateDir, Files::isRegularFile)) {
             for (Path file : fileStream) {
               String requestedStatus =
                   clickHouseDAO.selectFileStatusOnFilename(
@@ -147,14 +136,16 @@ public class CleanupUploadedFilesFlow {
                 leftFilesCounter++;
               }
             }
+            try (Stream<Path> innerDirStream = Files.list(dateDir)) {
+              if (!innerDirStream.iterator().hasNext()) {
+                deletedDirectories.add(dateDir.getFileName().toString());
+                Files.delete(dateDir);
+                deletedDirsCounter++;
+                LOGGER.info("Successfully deleted directory: {}", dateDir);
+              }
+            }
           } catch (ClickHouseException e) {
-            LOGGER.error("ERROR SELECTING FILE STATUS FOR DIRECTORY {} - ", entry, e);
-          }
-          if (leftFilesCounter == 0) {
-            deletedDirectories.add(entry.getFileName().toString());
-            Files.delete(entry);
-            deletedDirsCounter++;
-            LOGGER.info("Successfully deleted directory: {}", entry);
+            LOGGER.error("ERROR SELECTING FILE STATUS FOR DIRECTORY {} - ", dateDir, e);
           }
         }
       }
@@ -164,7 +155,9 @@ public class CleanupUploadedFilesFlow {
             deletedDirsCounter,
             deletedFilesCounter,
             leftFilesCounter);
-        LOGGER.info("Deleted dirs: {}", deletedDirectories);
+        if (!deletedDirectories.isEmpty()) {
+          LOGGER.info("Deleted dirs: {}", deletedDirectories);
+        }
         LOGGER.info("Next cleaning queued in {} hours", WORK_CYCLE_TIME_HOURS);
       } else {
         LOGGER.info("Nothing to clean, retrying in {} hours", WORK_CYCLE_TIME_HOURS);
