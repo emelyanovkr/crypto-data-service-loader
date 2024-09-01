@@ -1,6 +1,5 @@
 package com.crypto.service.flow;
 
-import com.crypto.service.MainApplication;
 import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.data.TickerFile;

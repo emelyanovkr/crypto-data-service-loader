@@ -113,6 +113,32 @@ public class SaveNewFilesToDbFlowTest {
     }
   }
 
+  @Test
+  public void filesBufferIsEmptyShouldBeReturnedToPostFlushStep() {
+    FlowerInOutPrm<Long> lastFlushTime = new FlowerInOutPrm<>(5L);
+    FlowerInOutPrm<Queue<TickerFile>> localFilesBuffer = new FlowerInOutPrm<>(new LinkedList<>());
+    try {
+      SaveNewFilesToDbFlow.TRY_TO_FLUSH_BUFFER(
+          clickHouseDAO, lastFlushTime, localFilesBuffer, POST_FLUSH);
+
+      // because localFilesBuffer is empty we should return to POST_FLUSH flow
+      // that means no interactions with clickhouseDAO
+      verifyNoInteractions(clickHouseDAO);
+
+      localFilesBuffer =
+          new FlowerInOutPrm<>(
+              new LinkedList<>(List.of(new TickerFile(TEST_FILE_A, LocalDate.now(), null))));
+      SaveNewFilesToDbFlow.TRY_TO_FLUSH_BUFFER(
+          clickHouseDAO, lastFlushTime, localFilesBuffer, POST_FLUSH);
+
+      // now localFilesBuffer has one element at least
+      // -> we shouldn't return to POST_FLUSH without interacting with clickhouseDAO
+      verify(clickHouseDAO).selectExclusiveTickerFilesNames(anyString(), anyString());
+    } catch (ClickHouseException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   // GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER should add a file to filesBuffer by causing an
   // event from WatcherService
   @Test
@@ -166,7 +192,7 @@ public class SaveNewFilesToDbFlowTest {
     }
   }
 
-  // TRY_TO_FLUSH_BUFFER should sent to database only files that are not loaded into the database
+  // TRY_TO_FLUSH_BUFFER should send to database only files that are not loaded into the database
   @Test
   public void localExclusiveDataCorrectlySentToDatabase() {
     FlowerInOutPrm<Long> lastFlushTime = new FlowerInOutPrm<>(5L);

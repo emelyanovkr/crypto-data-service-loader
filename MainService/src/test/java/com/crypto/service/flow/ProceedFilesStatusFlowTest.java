@@ -1,9 +1,12 @@
 package com.crypto.service.flow;
 
+import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.dao.ClickHouseDAO;
+import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
 import com.crypto.service.util.WorkersUtil;
 import com.flower.conf.Transition;
+import com.flower.engine.function.FlowerOutPrm;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -19,15 +22,35 @@ import static com.crypto.service.data.TickerFile.FileStatus.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 public class ProceedFilesStatusFlowTest {
 
   @Mock private ClickHouseDAO clickHouseDAO;
   @Mock private Transition RETRIEVE_TICKER_FILES_INFO;
+  @Mock private Transition PROCEED_FILES_STATUS;
 
   private static final String TEST_FILE_A = "0000A";
   private static final String TEST_FILE_B = "0000B";
+
+  // In RETRIEVE_TICKER_FILES_INFO clickhouseDAO should be correctly called with right arguments
+  @Test
+  public void clickhouseDaoCalledWithCorrectArgumentsToRetrieveFilesList() {
+    FlowerOutPrm<List<TickerFile>> tickerFiles = new FlowerOutPrm<>();
+    ProceedFilesStatusFlow.RETRIEVE_TICKER_FILES_INFO(
+        clickHouseDAO, tickerFiles, PROCEED_FILES_STATUS);
+    try {
+      verify(clickHouseDAO, times(1))
+          .selectTickerFilesNamesOnStatus(
+              Tables.TICKER_FILES.getTableName(),
+              TickerFile.FileStatus.DISCOVERED,
+              TickerFile.FileStatus.DOWNLOADING);
+    } catch (ClickHouseException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   // RETRIEVE_TICKER_FILES_INFO should change file statuses accordingly
   @Test

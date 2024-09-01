@@ -1,7 +1,6 @@
 package com.crypto.service.flow;
 
 import com.clickhouse.client.ClickHouseException;
-import com.crypto.service.MainApplication;
 import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
@@ -61,7 +60,6 @@ public class UploadTickerFilesStatusAndDataFlow {
       @In(throwIfNull = true) ClickHouseDAO clickHouseDAO,
       @StepRef Transition FILL_PATHS_LIST) {
     try {
-
       List<TickerFile> tickerFilesVal =
           clickHouseDAO.selectTickerFilesNamesOnStatus(
               Tables.TICKER_FILES.getTableName(), TickerFile.FileStatus.READY_FOR_PROCESSING);
@@ -74,6 +72,7 @@ public class UploadTickerFilesStatusAndDataFlow {
           Tables.TICKER_FILES.getTableName());
 
     } catch (ClickHouseException e) {
+      // TODO: reconnect logic
       throw new RuntimeException(e);
     }
     return FILL_PATHS_LIST;
@@ -132,7 +131,6 @@ public class UploadTickerFilesStatusAndDataFlow {
       return Futures.immediateFuture(
           RETRIEVE_PREPARED_FILES.setDelay(Duration.ofSeconds(WORK_CYCLE_TIME_SEC)));
     }
-
     TickersDataLoader dataLoader = new TickersDataLoader(filePaths, tickerFiles);
 
     LOGGER.info("Ready to upload {} tickers files data", tickerFiles.size());
@@ -144,30 +142,39 @@ public class UploadTickerFilesStatusAndDataFlow {
     return Futures.transform(
         uploadTickerFuture,
         map -> {
-          for (Map.Entry<ListenableFuture<Void>, List<TickerFile>> ent : map.entrySet()) {
-            ListenableFuture<Void> future = ent.getKey();
-            try {
-              future.get();
-              WorkersUtil.changeTickerFileUpdateStatus(
-                  clickHouseDAO, ent.getValue(), TickerFile.FileStatus.FINISHED);
-              WorkersUtil.changeTickerFileUpdateStatus(
-                  clickHouseDAO, ent.getValue(), TickerFile.FileStatus.ERROR);
-            } catch (Exception e) {
-              LOGGER.error("UPLOADING TICKERS DATA FUTURES EXCEPTION - ", e);
-            }
-          }
-
-          DecimalFormat df = new DecimalFormat("0.00");
-          double totalUploadingTime =
-              (double) (System.currentTimeMillis() - uploadingStartTime) / 1000;
-          String totalUploadingTimeStr = df.format(totalUploadingTime);
-
-          LOGGER.info(
-              "Finished uploading {} tickers files data: {} sec.",
-              tickerFiles.size(),
-              totalUploadingTimeStr);
+          handleUpdateStatus(clickHouseDAO, map, tickerFiles, uploadingStartTime);
           return RETRIEVE_PREPARED_FILES.setDelay(Duration.ofSeconds(WORK_CYCLE_TIME_SEC));
         },
         MoreExecutors.directExecutor());
+  }
+
+  protected static void handleUpdateStatus(
+      ClickHouseDAO clickHouseDAO,
+      Map<ListenableFuture<Void>, List<TickerFile>> map,
+      List<TickerFile> tickerFiles,
+      long uploadingStartTime) {
+    {
+      for (Map.Entry<ListenableFuture<Void>, List<TickerFile>> ent : map.entrySet()) {
+        ListenableFuture<Void> future = ent.getKey();
+        try {
+          future.get();
+          WorkersUtil.changeTickerFileUpdateStatus(
+              clickHouseDAO, ent.getValue(), TickerFile.FileStatus.FINISHED);
+          WorkersUtil.changeTickerFileUpdateStatus(
+              clickHouseDAO, ent.getValue(), TickerFile.FileStatus.ERROR);
+        } catch (Exception e) {
+          LOGGER.error("UPLOADING TICKERS DATA FUTURES EXCEPTION - ", e);
+        }
+      }
+
+      DecimalFormat df = new DecimalFormat("0.00");
+      double totalUploadingTime = (double) (System.currentTimeMillis() - uploadingStartTime) / 1000;
+      String totalUploadingTimeStr = df.format(totalUploadingTime);
+
+      LOGGER.info(
+          "Finished uploading {} tickers files data: {} sec.",
+          tickerFiles.size(),
+          totalUploadingTimeStr);
+    }
   }
 }

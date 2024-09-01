@@ -4,12 +4,17 @@ import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
+import com.crypto.service.util.WorkersUtil;
 import com.flower.conf.Transition;
 import com.flower.engine.function.FlowerOutPrm;
 import com.google.common.io.Resources;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
@@ -19,13 +24,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.Month;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class UploadTickerFilesStatusAndDataFlowTest {
@@ -47,6 +53,7 @@ public class UploadTickerFilesStatusAndDataFlowTest {
   @Mock ClickHouseDAO clickHouseDAO;
   @Mock Transition UPLOAD_TICKERS_FILES_DATA;
   @Mock Transition FILL_PATHS_LIST;
+  @Mock Transition RETRIEVE_PREPARED_FILES;
 
   // Checking that clickhouseDAO called with correct parameters
   @Test
@@ -122,6 +129,34 @@ public class UploadTickerFilesStatusAndDataFlowTest {
       Files.delete(TEST_DIR_TEN);
     } catch (IOException e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  // Empty list send to a step, so no work must be done and it should return to the start
+  @Test
+  public void uploadTickerFilesDataShouldReturnWhenTickerFilesIsEmpty() {
+    UploadTickerFilesStatusAndDataFlow.UPLOAD_TICKERS_FILES_DATA(
+        clickHouseDAO, new ArrayList<>(), null, RETRIEVE_PREPARED_FILES);
+
+    verify(RETRIEVE_PREPARED_FILES).setDelay(any());
+    verifyNoInteractions(clickHouseDAO);
+  }
+
+  @Test
+  public void handleUpdateStatusShouldCalledChangeTickerFileStatusMethodTwice() {
+    List<TickerFile> tickerFiles =
+        List.of(new TickerFile(TEST_FILE_A, LocalDate.now(), TickerFile.FileStatus.FINISHED));
+    SettableFuture<Void> future = SettableFuture.create();
+    Map<ListenableFuture<Void>, List<TickerFile>> map =
+        Map.of(future, tickerFiles);
+
+    future.set(null);
+
+    try (MockedStatic<WorkersUtil> mockedWorkersUtil = mockStatic(WorkersUtil.class)) {
+      UploadTickerFilesStatusAndDataFlow.handleUpdateStatus(clickHouseDAO, map, tickerFiles, System.currentTimeMillis());
+      mockedWorkersUtil.verify(
+          () -> WorkersUtil.changeTickerFileUpdateStatus(any(), anyList(), any()),
+          Mockito.times(2));
     }
   }
 }
