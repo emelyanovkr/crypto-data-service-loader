@@ -47,7 +47,6 @@ public class ClickHouseDAO {
     }
   }
 
-  // TODO: CONSIDER ONE OF THE METHODS
   public List<TickerFile> selectTickerFilesOnSpecifiedDate(
       String tableName, String column, LocalDate date) throws ClickHouseException {
     String convertedInputData = "'" + date.toString() + "'";
@@ -71,7 +70,7 @@ public class ClickHouseDAO {
       return tickerFiles;
     }
   }
-  // TODO: CONSIDER ONE OF THE METHODS
+
   public String selectFileStatusOnFilename(String tableName, String filename)
       throws ClickHouseException {
     String sqlFilename = "'" + filename + "'";

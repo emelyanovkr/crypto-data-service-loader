@@ -132,7 +132,7 @@ public class UploadTickerFilesStatusAndDataFlowTest {
     }
   }
 
-  // Empty list send to a step, so no work must be done and it should return to the start
+  // Empty list sent to a step, so no work must be done, and it should return to the start
   @Test
   public void uploadTickerFilesDataShouldReturnWhenTickerFilesIsEmpty() {
     UploadTickerFilesStatusAndDataFlow.UPLOAD_TICKERS_FILES_DATA(

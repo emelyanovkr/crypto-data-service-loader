@@ -134,10 +134,6 @@ public class TickersDataLoader {
                   compressionHandler.compressFilesWithGZIP(
                       tickerPathPartition, new HashSet<>(tickerFilesPartition)));
 
-          // TODO: проверить, вставляются ли данные в середине работы программы, в случае если вся
-          // пачка упадёт
-          // для тех кто обработался должен быть установлен статус finished, для всех остальных
-          // error
           clickHouseDAO.insertTickersData(pin, Tables.TICKERS_DATA.getTableName());
 
           taskFuture.set(null);

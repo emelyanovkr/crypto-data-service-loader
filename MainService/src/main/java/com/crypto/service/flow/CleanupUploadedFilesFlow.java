@@ -103,11 +103,6 @@ public class CleanupUploadedFilesFlow {
       @In(throwIfNull = true) LocalDate lastDateOfUploadedFile,
       @StepRef Transition PREPARE_TO_CLEAN_FILES) {
 
-    // TODO: reconsider
-    //  1. Выкачать всю пачку файлов и проверять их статус локально
-    //  2. Делать лукап прямо в базу данных по имени файла и проверять статус
-    //  3. Выкачать только пачку файлов со статусом ERROR и проверять статус локально
-
     Path rootDirectory = Paths.get(rootPath);
     try (DirectoryStream<Path> stream =
         Files.newDirectoryStream(rootDirectory, Files::isDirectory)) {
