@@ -27,7 +27,7 @@ Each flow has a parameter `WORK_CYCLE_TIME_HOURS/SEC`, which regulates the flow 
 
 ### Save new files to database flow
 
-The first flow detects new files provided by the service using **KucoinAPI**. When a new file appears on disk after a certain time this file will be placed in filesBuffer with the help of `WatcherService` and then information about it will be loaded into the database.  
+The first flow detects new files provided by the service using **KucoinAPI**. When a new file appears on disk after a certain time this file will be placed in `filesBuffer` with the help of `WatcherService` and then information about it will be loaded into the database.  
 The table with information about the file contains the following columns: 
 + filename, 
 + create_date, 
@@ -62,7 +62,7 @@ If the file processing status is `ERROR`, the file will not be deleted from disk
 ### Logging
 
 There are many points throughout the program where logging is used with `SLF4J + Log4j2`.  
-Log messages are also sent to the Clickhouse database using [a custom-written ClickhouseAppender](/ClickHouseAppender/src/main/java/com/clickhouse/appender/ClickHouseAppender.java), a special log message handler that uploads them to the database.  
+Log messages are also sent to the Clickhouse database using [a custom-written ClickhouseAppender](https://github.com/emelyanovkr/ClickHouseAppender/blob/main/src/main/java/com/clickhouse/appender/ClickHouseAppender.java), a special log message handler that uploads them to the database.  
 The log message in the database contains the message itself and its timestamp. The message is stored in `JSON` format.
 
 ### Testing
