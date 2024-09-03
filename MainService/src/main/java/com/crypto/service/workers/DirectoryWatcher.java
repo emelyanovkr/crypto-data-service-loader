@@ -18,7 +18,6 @@ public class DirectoryWatcher implements Runnable {
   protected final Logger LOGGER = LoggerFactory.getLogger(DirectoryWatcher.class);
 
   protected static final int FILES_BUFFER_SIZE = 8192;
-  // TODO: CHANGE THIS TIMEOUT
   protected static final int DISCOVERY_FILES_TIMEOUT_SEC = 5;
 
   protected final String directoryPath;
@@ -66,7 +65,6 @@ public class DirectoryWatcher implements Runnable {
         startDiscoveryWorker(filesBufferToFlush);
       } else {
         try {
-          // TODO: TO look over time
           Thread.sleep(100);
         } catch (InterruptedException e) {
           LOGGER.error("Thread interrupted", e);

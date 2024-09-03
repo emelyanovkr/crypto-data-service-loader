@@ -1,5 +1,6 @@
 package com.crypto.service.config;
 
+import com.crypto.service.flow.CleanupUploadedFilesFlow;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class MainFlowsConfig {
@@ -12,6 +13,9 @@ public class MainFlowsConfig {
 
   @JsonProperty("UploadTickersDataConfig")
   protected UploadTickersDataConfig uploadTickersDataConfig;
+
+  @JsonProperty("CleanupUploadedFilesConfig")
+  protected CleanupUploadedFilesConfig cleanupUploadedFilesConfig;
 
   public DiscoverNewFilesConfig getDiscoverNewFilesConfig() {
     return discoverNewFilesConfig;
@@ -35,6 +39,16 @@ public class MainFlowsConfig {
 
   public void setUploadTickersDataConfig(UploadTickersDataConfig uploadTickersDataConfig) {
     this.uploadTickersDataConfig = uploadTickersDataConfig;
+  }
+
+  public CleanupUploadedFilesConfig getCleanupUploadedFilesConfig()
+  {
+    return cleanupUploadedFilesConfig;
+  }
+
+  public void setCleanupUploadedFilesConfig(CleanupUploadedFilesConfig cleanupUploadedFilesConfig)
+  {
+    this.cleanupUploadedFilesConfig = cleanupUploadedFilesConfig;
   }
 
   public class DiscoverNewFilesConfig {
@@ -79,6 +93,20 @@ public class MainFlowsConfig {
 
     public void setWorkCycleTimeSec(int workCycleTimeSec) {
       this.workCycleTimeSec = workCycleTimeSec;
+    }
+  }
+
+  public class CleanupUploadedFilesConfig {
+    protected int workCycleTimeHours;
+
+    public int getWorkCycleTimeHours()
+    {
+      return workCycleTimeHours;
+    }
+
+    public void setWorkCycleTimeHours(int workCycleTimeHours)
+    {
+      this.workCycleTimeHours = workCycleTimeHours;
     }
   }
 }

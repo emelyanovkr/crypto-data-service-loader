@@ -1,10 +1,12 @@
 package com.crypto.service.flow;
 
+import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.dao.ClickHouseDAO;
+import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
 import com.crypto.service.util.WorkersUtil;
 import com.flower.conf.Transition;
-import org.junit.jupiter.api.BeforeEach;
+import com.flower.engine.function.FlowerOutPrm;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -20,20 +22,37 @@ import static com.crypto.service.data.TickerFile.FileStatus.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 public class ProceedFilesStatusFlowTest {
 
   @Mock private ClickHouseDAO clickHouseDAO;
   @Mock private Transition RETRIEVE_TICKER_FILES_INFO;
+  @Mock private Transition PROCEED_FILES_STATUS;
 
   private static final String TEST_FILE_A = "0000A";
   private static final String TEST_FILE_B = "0000B";
 
-  @BeforeEach
-  public void setUp() {}
+  // In RETRIEVE_TICKER_FILES_INFO clickhouseDAO should be correctly called with right arguments
+  @Test
+  public void clickhouseDaoCalledWithCorrectArgumentsToRetrieveFilesList() {
+    FlowerOutPrm<List<TickerFile>> tickerFiles = new FlowerOutPrm<>();
+    ProceedFilesStatusFlow.RETRIEVE_TICKER_FILES_INFO(
+        clickHouseDAO, tickerFiles, PROCEED_FILES_STATUS);
+    try {
+      verify(clickHouseDAO, times(1))
+          .selectTickerFilesNamesOnStatus(
+              Tables.TICKER_FILES.getTableName(),
+              TickerFile.FileStatus.DISCOVERED,
+              TickerFile.FileStatus.DOWNLOADING);
+    } catch (ClickHouseException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
-  // Testing RETRIEVE_TICKER_FILES_INFO flow
+  // RETRIEVE_TICKER_FILES_INFO should change file statuses accordingly
   @Test
   public void fileStatusSetDownloadingForTodayDateFiles() {
     try (MockedStatic<WorkersUtil> mockedWorkersUtil = Mockito.mockStatic(WorkersUtil.class)) {
@@ -41,9 +60,11 @@ public class ProceedFilesStatusFlowTest {
           new ArrayList<>(
               List.of(
                   new TickerFile(
-                    TEST_FILE_A, LocalDate.now(), DISCOVERED), // Status should be set for DOWNLOADING
+                      TEST_FILE_A,
+                      LocalDate.now(),
+                      DISCOVERED), // Status should be set for DOWNLOADING
                   new TickerFile(
-                    TEST_FILE_B,
+                      TEST_FILE_B,
                       LocalDate.now(),
                       TickerFile.FileStatus.ERROR) // Status should be leaved as it is
                   ));
@@ -51,16 +72,18 @@ public class ProceedFilesStatusFlowTest {
       ProceedFilesStatusFlow.PROCEED_FILES_STATUS(
           clickHouseDAO, testTickerFiles, RETRIEVE_TICKER_FILES_INFO);
 
+      // Checking that updated method called twice for both files, so they status should be changed
       mockedWorkersUtil.verify(
           () -> WorkersUtil.changeTickerFileUpdateStatus(any(), anyList(), any()),
           Mockito.times(2));
 
+      // Checking their status change
       assertEquals(testTickerFiles.get(0).getStatus(), DOWNLOADING);
       assertEquals(testTickerFiles.get(1).getStatus(), ERROR);
     }
   }
 
-  // Testing RETRIEVE_TICKER_FILES_INFO flow
+  // RETRIEVE_TICKER_FILES_INFO should change file statuses accordingly
   @Test
   public void fileStatusSetReadyForProcessingForYesterdayFiles() {
     try (MockedStatic<WorkersUtil> mockedWorkersUtil = Mockito.mockStatic(WorkersUtil.class)) {
@@ -68,11 +91,11 @@ public class ProceedFilesStatusFlowTest {
           new ArrayList<>(
               List.of(
                   new TickerFile(
-                    TEST_FILE_A,
+                      TEST_FILE_A,
                       LocalDate.now().minusDays(5),
                       DISCOVERED), // Status should be set for READY_FOR_PROCESSING
                   new TickerFile(
-                    TEST_FILE_B,
+                      TEST_FILE_B,
                       LocalDate.now(),
                       TickerFile.FileStatus.ERROR) // Status should be leaved as it is
                   ));
@@ -80,10 +103,12 @@ public class ProceedFilesStatusFlowTest {
       ProceedFilesStatusFlow.PROCEED_FILES_STATUS(
           clickHouseDAO, testTickerFiles, RETRIEVE_TICKER_FILES_INFO);
 
+      // Checking that updated method of clickhouseDAO called twice to change status of files
       mockedWorkersUtil.verify(
           () -> WorkersUtil.changeTickerFileUpdateStatus(any(), anyList(), any()),
           Mockito.times(2));
 
+      // Checking their status change
       assertEquals(testTickerFiles.get(0).getStatus(), READY_FOR_PROCESSING);
       assertEquals(testTickerFiles.get(1).getStatus(), ERROR);
     }

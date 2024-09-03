@@ -72,9 +72,7 @@ public class CompressionHandler {
             } else {
               LOGGER.error("REPRESENTING FILE IS MISSING - {}", fileName);
             }
-
           } catch (IOException e) {
-
             LOGGER.error("READING COMPRESSION ERROR - ", e);
             throw new RuntimeException(e);
           }

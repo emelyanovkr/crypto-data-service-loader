@@ -22,6 +22,18 @@ public class TickerFile {
     public String getSQLStatus() {
       return "'" + this.name() + "'";
     }
+
+    public static FileStatus parseStatus(String status) {
+      return switch (status) {
+        case "DISCOVERED" -> FileStatus.DISCOVERED;
+        case "DOWNLOADING" -> FileStatus.DOWNLOADING;
+        case "READY_FOR_PROCESSING" -> FileStatus.READY_FOR_PROCESSING;
+        case "IN_PROGRESS" -> FileStatus.IN_PROGRESS;
+        case "FINISHED" -> FileStatus.FINISHED;
+        case "ERROR" -> FileStatus.ERROR;
+        default -> throw new IllegalArgumentException("Unknown status: " + status);
+      };
+    }
   }
 
   public TickerFile(String fileName, LocalDate createDate, FileStatus status) {

@@ -1,7 +1,6 @@
 package com.crypto.service.flow;
 
 import com.clickhouse.client.ClickHouseException;
-import com.crypto.service.MainApplication;
 import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
@@ -34,8 +33,8 @@ public class ProceedFilesStatusFlow {
   @State protected final ClickHouseDAO clickHouseDAO;
   @State protected List<TickerFile> tickerFiles;
 
-  public ProceedFilesStatusFlow() {
-    mainFlowsConfig = MainApplication.mainFlowsConfig;
+  public ProceedFilesStatusFlow(MainFlowsConfig mainFlowsConfig) {
+    this.mainFlowsConfig = mainFlowsConfig;
     WORK_CYCLE_TIME_SEC = mainFlowsConfig.getProceedFilesStatusConfig().getWorkCycleTimeSec();
 
     this.clickHouseDAO = new ClickHouseDAO();

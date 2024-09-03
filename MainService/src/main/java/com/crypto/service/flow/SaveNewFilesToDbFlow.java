@@ -1,6 +1,5 @@
 package com.crypto.service.flow;
 
-import com.crypto.service.MainApplication;
 import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.data.TickerFile;
@@ -53,8 +52,8 @@ public class SaveNewFilesToDbFlow {
 
   @State protected Long lastFlushTime;
 
-  public SaveNewFilesToDbFlow(String rootPath) {
-    mainFlowsConfig = MainApplication.mainFlowsConfig;
+  public SaveNewFilesToDbFlow(MainFlowsConfig mainFlowsConfig, String rootPath) {
+    this.mainFlowsConfig = mainFlowsConfig;
     FILES_BUFFER_SIZE = mainFlowsConfig.getDiscoverNewFilesConfig().getFilesBufferSize();
     DISCOVERY_FILES_TIMEOUT_SEC =
         mainFlowsConfig.getDiscoverNewFilesConfig().getFlushDiscoveredFilesTimeoutSec();

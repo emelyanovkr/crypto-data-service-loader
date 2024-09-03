@@ -4,6 +4,7 @@ import com.crypto.service.config.ApplicationConfig;
 import com.crypto.service.config.DatabaseConfig;
 import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.config.TickersDataConfig;
+import com.crypto.service.flow.CleanupUploadedFilesFlow;
 import com.crypto.service.flow.ProceedFilesStatusFlow;
 import com.crypto.service.flow.SaveNewFilesToDbFlow;
 import com.crypto.service.flow.UploadTickerFilesStatusAndDataFlow;
@@ -59,21 +60,27 @@ public class MainApplication {
     flower.registerFlow(SaveNewFilesToDbFlow.class);
     flower.registerFlow(ProceedFilesStatusFlow.class);
     flower.registerFlow(UploadTickerFilesStatusAndDataFlow.class);
+    flower.registerFlow(CleanupUploadedFilesFlow.class);
     flower.initialize();
 
     FlowExec<SaveNewFilesToDbFlow> saveFilesExec = flower.getFlowExec(SaveNewFilesToDbFlow.class);
     FlowFuture<SaveNewFilesToDbFlow> saveFilesFuture =
-        saveFilesExec.runFlow(new SaveNewFilesToDbFlow(DATA_PATH));
+        saveFilesExec.runFlow(new SaveNewFilesToDbFlow(mainFlowsConfig, DATA_PATH));
 
     FlowExec<ProceedFilesStatusFlow> proceedFilesExec =
         flower.getFlowExec(ProceedFilesStatusFlow.class);
     FlowFuture<ProceedFilesStatusFlow> proceedFilesFuture =
-        proceedFilesExec.runFlow(new ProceedFilesStatusFlow());
+        proceedFilesExec.runFlow(new ProceedFilesStatusFlow(mainFlowsConfig));
 
     FlowExec<UploadTickerFilesStatusAndDataFlow> uploadFilesExec =
         flower.getFlowExec(UploadTickerFilesStatusAndDataFlow.class);
     FlowFuture<UploadTickerFilesStatusAndDataFlow> uploadFilesFuture =
-        uploadFilesExec.runFlow(new UploadTickerFilesStatusAndDataFlow(DATA_PATH));
+        uploadFilesExec.runFlow(new UploadTickerFilesStatusAndDataFlow(mainFlowsConfig, DATA_PATH));
+
+    FlowExec<CleanupUploadedFilesFlow> cleanUpFilesExec =
+        flower.getFlowExec(CleanupUploadedFilesFlow.class);
+    FlowFuture<CleanupUploadedFilesFlow> cleanUpFilesFuture =
+        cleanUpFilesExec.runFlow(new CleanupUploadedFilesFlow(mainFlowsConfig, DATA_PATH));
 
     try {
       SaveNewFilesToDbFlow saveState = saveFilesFuture.getFuture().get();
@@ -82,20 +89,5 @@ public class MainApplication {
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  @Deprecated
-  public static void startWorkers() {
-    // PreparingWorker preparingWorker = new PreparingWorker(DATA_PATH);
-    // Thread preparingThread = new Thread(preparingWorker, "PREPARING-WORKER-THREAD");
-    // preparingThread.start();
-
-    // ProcessingWorker processingWorker = new ProcessingWorker();
-    // Thread processingThread = new Thread(processingWorker);
-    // processingThread.start();
-
-    // UploaderWorker preparingWorker = new UploaderWorker(DATA_PATH);
-    // Thread preparingThread = new Thread(preparingWorker);
-    // preparingThread.start();
   }
 }

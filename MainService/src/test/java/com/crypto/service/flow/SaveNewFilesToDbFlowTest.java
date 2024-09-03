@@ -40,6 +40,11 @@ import static org.mockito.Mockito.*;
 public class SaveNewFilesToDbFlowTest {
 
   private static final String CONFIG_NAME;
+  private static final String TEST_FILE_A = "0000A";
+  private static final String TEST_FILE_B = "0000B";
+  private static final String TEST_FILE_C = "0000C";
+  private static final String TEST_FILE_D = "0000D";
+  private static final String TEST_FILE_X = "0000X";
 
   @Mock private ClickHouseDAO clickHouseDAO;
   @Mock private ClickHouseNode clickHouseNode;
@@ -82,10 +87,10 @@ public class SaveNewFilesToDbFlowTest {
     }
   }
 
-  // Testing RETRIEVE_FILE_NAMES_LIST_ON_START step
+  // RETRIEVE_FILE_NAMES_LIST_ON_START should correctly collect all files in specified directory
   @Test
   public void retrievedFoldersWithDateMatchedSpecifiedFilesList() {
-    List<String> testFiles = List.of("0000A", "0000B", "0000C", "0000D", "0000E", "0000F");
+    List<String> testFiles = List.of(TEST_FILE_A, TEST_FILE_B, TEST_FILE_C, TEST_FILE_D);
     try {
       FlowerOutPrm<Queue<TickerFile>> outFilesBuffer = new FlowerOutPrm<>();
       Queue<TickerFile> outTickerFiles = new LinkedList<>();
@@ -108,11 +113,38 @@ public class SaveNewFilesToDbFlowTest {
     }
   }
 
-  // Testing GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER step
+  @Test
+  public void filesBufferIsEmptyShouldBeReturnedToPostFlushStep() {
+    FlowerInOutPrm<Long> lastFlushTime = new FlowerInOutPrm<>(5L);
+    FlowerInOutPrm<Queue<TickerFile>> localFilesBuffer = new FlowerInOutPrm<>(new LinkedList<>());
+    try {
+      SaveNewFilesToDbFlow.TRY_TO_FLUSH_BUFFER(
+          clickHouseDAO, lastFlushTime, localFilesBuffer, POST_FLUSH);
+
+      // because localFilesBuffer is empty we should return to POST_FLUSH flow
+      // that means no interactions with clickhouseDAO
+      verifyNoInteractions(clickHouseDAO);
+
+      localFilesBuffer =
+          new FlowerInOutPrm<>(
+              new LinkedList<>(List.of(new TickerFile(TEST_FILE_A, LocalDate.now(), null))));
+      SaveNewFilesToDbFlow.TRY_TO_FLUSH_BUFFER(
+          clickHouseDAO, lastFlushTime, localFilesBuffer, POST_FLUSH);
+
+      // now localFilesBuffer has one element at least
+      // -> we shouldn't return to POST_FLUSH without interacting with clickhouseDAO
+      verify(clickHouseDAO).selectExclusiveTickerFilesNames(anyString(), anyString());
+    } catch (ClickHouseException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  // GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER should add a file to filesBuffer by causing an
+  // event from WatcherService
   @Test
   public void createAnEventForWatcherServiceAndFileBeenAddedToFilesBuffer() {
     FlowerOutPrm<WatchService> watchService = new FlowerOutPrm<>();
-    String TEST_FILE_NAME = "0000X";
+    String TEST_FILE_NAME = TEST_FILE_X;
     try (MockedStatic<LocalDate> mockedLocalDate = Mockito.mockStatic(LocalDate.class)) {
       mockedLocalDate.when(LocalDate::now).thenReturn(TEST_DATE);
 
@@ -160,23 +192,21 @@ public class SaveNewFilesToDbFlowTest {
     }
   }
 
-  // Testing TRY_TO_FLUSH_BUFFER step
-  // The test shows that only files that are not there will be loaded into the database
+  // TRY_TO_FLUSH_BUFFER should send to database only files that are not loaded into the database
   @Test
-  public void localExclusiveDataCorrectlySentToDatabaes() {
-
+  public void localExclusiveDataCorrectlySentToDatabase() {
     FlowerInOutPrm<Long> lastFlushTime = new FlowerInOutPrm<>(5L);
 
     FlowerInOutPrm<Queue<TickerFile>> localFilesBuffer =
         new FlowerInOutPrm<>(
             new LinkedList<>(
                 Arrays.asList(
-                    new TickerFile("0000A", TEST_DATE, null),
-                    new TickerFile("0000B", TEST_DATE, null),
-                    new TickerFile("0000C", TEST_DATE, null))));
+                    new TickerFile(TEST_FILE_A, TEST_DATE, null),
+                    new TickerFile(TEST_FILE_B, TEST_DATE, null),
+                    new TickerFile(TEST_FILE_C, TEST_DATE, null))));
 
     try {
-      List<String> testFilesFromDatabase = List.of("0000C", "0000F");
+      List<String> testFilesFromDatabase = List.of(TEST_FILE_C, TEST_FILE_X);
       when(clickHouseDAO.selectExclusiveTickerFilesNames(anyString(), anyString()))
           .thenReturn(testFilesFromDatabase);
 
@@ -186,13 +216,14 @@ public class SaveNewFilesToDbFlowTest {
       Queue<TickerFile> toCheckWithLocalFiles =
           new LinkedList<>(
               List.of(
-                  new TickerFile("0000A", TEST_DATE, TickerFile.FileStatus.DISCOVERED),
-                  new TickerFile("0000B", TEST_DATE, TickerFile.FileStatus.DISCOVERED)));
+                  new TickerFile(TEST_FILE_A, TEST_DATE, TickerFile.FileStatus.DISCOVERED),
+                  new TickerFile(TEST_FILE_B, TEST_DATE, TickerFile.FileStatus.DISCOVERED)));
 
       assertEquals(toCheckWithLocalFiles, localFilesBuffer.getInValue());
       verify(clickHouseDAO, atLeastOnce())
           .insertTickerFilesInfo(
-              TickerFile.formDataToInsert(localFilesBuffer.getInValue()), Tables.TICKER_FILES.getTableName());
+              TickerFile.formDataToInsert(localFilesBuffer.getInValue()),
+              Tables.TICKER_FILES.getTableName());
 
     } catch (ClickHouseException e) {
       throw new RuntimeException(e);
