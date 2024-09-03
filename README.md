@@ -23,7 +23,8 @@ According to the API, the data contains the following information:
 
 The service consists of 4 flows working **isolated from each other and in parallel**. Flow diagram is presented [at the end of the readme](#flows-diagram).
 
-Each flow has a parameter `WORK_CYCLE_TIME_HOURS/SEC`, which regulates the flow cycle time. **[For example](/MainService/src/main/resources/application.origin.yaml#L29).**
+Each flow has a parameter `WORK_CYCLE_TIME_HOURS/SEC`, which regulates the flow cycle time. **[For example](/MainService/src/main/resources/application.origin.yaml#L29).**  
+`Jackson` is used to load application properties in `.yaml` format.
 
 ### Save new files to database flow
 
