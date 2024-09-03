@@ -51,7 +51,7 @@ This flow is still some manager over the data loading process.
 The entire set of files is divided into equal bundles of files of [a certain size](/MainService/src/main/resources/application.origin.yaml#L16) so that **each thread can process its part of the files.**   
 One half of these threads compresses the data into GZIP format and sends it to a special [PipedInputStream](https://docs.oracle.com/javase/8/docs/api/java/io/PipedInputStream.html), where the other half of the thread is waiting for it on [PipedOutputStream](https://docs.oracle.com/javase/8/docs/api/java/io/PipedOutputStream.html) and then loading the stream of **compressed files** directly into Clickhouse.  
 At the same time, the status of the file in the database changes to `IN_PROGRESS`. If an exception is caught, the file status will be set to `ERROR`.  
-Thanks to this joint work of the threads, we managed to achieve an upload speed of **200-300k rows/sec** on the Clickhouse server, which was hosted in ClickhouseCloud by Google in Netherlands. The same speed can be achieved using the Clickhouse CLI.
+Thanks to this joint work of the threads, we managed to achieve an upload speed of **300-500k rows/sec** on the Clickhouse server, which was hosted in ClickhouseCloud by Google in Netherlands. The same speed can be achieved using the Clickhouse CLI.
 
 ### Cleanup uploaded files flow
 
@@ -64,6 +64,7 @@ If the file processing status is `ERROR`, the file will not be deleted from disk
 
 There are many points throughout the program where logging is used with `SLF4J + Log4j2`.  
 Log messages are also sent to the Clickhouse database using [a custom-written ClickhouseAppender](https://github.com/emelyanovkr/ClickHouseAppender/blob/main/src/main/java/com/clickhouse/appender/ClickHouseAppender.java), a special log message handler that uploads them to the database.  
+`ClickhouseAppender` can be configured with [this file](/MainService/src/main/resources/log4j2.origin.xml).  
 The log message in the database contains the message itself and its timestamp. The message is stored in `JSON` format.
 
 ### Testing
