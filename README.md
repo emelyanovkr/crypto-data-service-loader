@@ -70,7 +70,7 @@ The log message in the database contains the message itself and its timestamp. T
 ### Testing
 
 [Tests](/MainService/src/test/java/com/crypto/service/) are written using `JUnit 5 and Mockito`.  
-The coverage of methods and classes in flows package reaches **80%**.
+The coverage of methods and classes in flows package reaches **78%**.
 
 ## Flows Diagram
 ### 1. Save new files to database flow
