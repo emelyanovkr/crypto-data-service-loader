@@ -80,6 +80,10 @@ public class ClickHouseDAO {
             .query("SELECT status FROM :tableName WHERE filename = :filename")
             .params(List.of(tableName, sqlFilename))
             .executeAndWait()) {
+
+      if (!response.records().iterator().hasNext()) {
+        return null;
+      }
       return response.firstRecord().getValue(0).asString();
     }
   }

@@ -13,6 +13,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.flower.conf.Transition;
 import com.flower.engine.function.FlowerOutPrm;
 import com.google.common.io.Resources;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.parallel.Execution;
@@ -44,16 +45,15 @@ public class CleanupUploadedFilesFlowTest {
   private static final String CONFIG_NAME = "application.yaml";
   private static final String FINISHED_STATUS = "FINISHED";
   private static final String ERROR_STATUS = "ERROR";
-  private static final String TEST_DATA_PATH;
+  private static String TEST_DATA_PATH;
   private static final String TEST_FILE_L = "0000L";
   private static final String TEST_FILE_K = "0000K";
 
-  static {
-    try {
-      TEST_DATA_PATH = Paths.get(Resources.getResource("TestData").toURI()).toString();
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
+  @BeforeAll
+  public static void setUp() throws URISyntaxException {
+    TEST_DATA_PATH = Paths.get(Resources.getResource("TestData").toURI()).toString();
+    CleanupUploadedFilesFlow.MAX_RECONNECT_ATTEMPTS = 3;
+    CleanupUploadedFilesFlow.SLEEP_ON_RECONNECT_MS = 500;
   }
 
   // 1. FIRST date == LAST date of uploaded file

@@ -1,6 +1,5 @@
 package com.crypto.service.config;
 
-import com.crypto.service.flow.CleanupUploadedFilesFlow;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class MainFlowsConfig {
@@ -41,19 +40,19 @@ public class MainFlowsConfig {
     this.uploadTickersDataConfig = uploadTickersDataConfig;
   }
 
-  public CleanupUploadedFilesConfig getCleanupUploadedFilesConfig()
-  {
+  public CleanupUploadedFilesConfig getCleanupUploadedFilesConfig() {
     return cleanupUploadedFilesConfig;
   }
 
-  public void setCleanupUploadedFilesConfig(CleanupUploadedFilesConfig cleanupUploadedFilesConfig)
-  {
+  public void setCleanupUploadedFilesConfig(CleanupUploadedFilesConfig cleanupUploadedFilesConfig) {
     this.cleanupUploadedFilesConfig = cleanupUploadedFilesConfig;
   }
 
   public class DiscoverNewFilesConfig {
     protected int filesBufferSize;
     protected int flushDiscoveredFilesTimeoutSec;
+    protected int sleepOnReconnectMs;
+    protected int maxReconnectAttempts;
 
     public int getFilesBufferSize() {
       return filesBufferSize;
@@ -70,10 +69,28 @@ public class MainFlowsConfig {
     public void setFlushDiscoveredFilesTimeoutSec(int flushDiscoveredFilesTimeoutSec) {
       this.flushDiscoveredFilesTimeoutSec = flushDiscoveredFilesTimeoutSec;
     }
+
+    public int getSleepOnReconnectMs() {
+      return sleepOnReconnectMs;
+    }
+
+    public void setSleepOnReconnectMs(int sleepOnReconnectMs) {
+      this.sleepOnReconnectMs = sleepOnReconnectMs;
+    }
+
+    public int getMaxReconnectAttempts() {
+      return maxReconnectAttempts;
+    }
+
+    public void setMaxReconnectAttempts(int maxReconnectAttempts) {
+      this.maxReconnectAttempts = maxReconnectAttempts;
+    }
   }
 
   public class ProceedFilesStatusConfig {
     protected int workCycleTimeSec;
+    protected int sleepOnReconnectMs;
+    protected int maxReconnectAttempts;
 
     public int getWorkCycleTimeSec() {
       return workCycleTimeSec;
@@ -81,11 +98,29 @@ public class MainFlowsConfig {
 
     public void setWorkCycleTimeSec(int workCycleTimeSec) {
       this.workCycleTimeSec = workCycleTimeSec;
+    }
+
+    public int getSleepOnReconnectMs() {
+      return sleepOnReconnectMs;
+    }
+
+    public void setSleepOnReconnectMs(int sleepOnReconnectMs) {
+      this.sleepOnReconnectMs = sleepOnReconnectMs;
+    }
+
+    public int getMaxReconnectAttempts() {
+      return maxReconnectAttempts;
+    }
+
+    public void setMaxReconnectAttempts(int maxReconnectAttempts) {
+      this.maxReconnectAttempts = maxReconnectAttempts;
     }
   }
 
   public class UploadTickersDataConfig {
     protected int workCycleTimeSec;
+    protected int sleepOnReconnectMs;
+    protected int maxReconnectAttempts;
 
     public int getWorkCycleTimeSec() {
       return workCycleTimeSec;
@@ -94,19 +129,51 @@ public class MainFlowsConfig {
     public void setWorkCycleTimeSec(int workCycleTimeSec) {
       this.workCycleTimeSec = workCycleTimeSec;
     }
+
+    public int getSleepOnReconnectMs() {
+      return sleepOnReconnectMs;
+    }
+
+    public void setSleepOnReconnectMs(int sleepOnReconnectMs) {
+      this.sleepOnReconnectMs = sleepOnReconnectMs;
+    }
+
+    public int getMaxReconnectAttempts() {
+      return maxReconnectAttempts;
+    }
+
+    public void setMaxReconnectAttempts(int maxReconnectAttempts) {
+      this.maxReconnectAttempts = maxReconnectAttempts;
+    }
   }
 
   public class CleanupUploadedFilesConfig {
     protected int workCycleTimeHours;
+    protected int sleepOnReconnectMs;
+    protected int maxReconnectAttempts;
 
-    public int getWorkCycleTimeHours()
-    {
+    public int getWorkCycleTimeHours() {
       return workCycleTimeHours;
     }
 
-    public void setWorkCycleTimeHours(int workCycleTimeHours)
-    {
+    public void setWorkCycleTimeHours(int workCycleTimeHours) {
       this.workCycleTimeHours = workCycleTimeHours;
+    }
+
+    public int getSleepOnReconnectMs() {
+      return sleepOnReconnectMs;
+    }
+
+    public void setSleepOnReconnectMs(int sleepOnReconnectMs) {
+      this.sleepOnReconnectMs = sleepOnReconnectMs;
+    }
+
+    public int getMaxReconnectAttempts() {
+      return maxReconnectAttempts;
+    }
+
+    public void setMaxReconnectAttempts(int maxReconnectAttempts) {
+      this.maxReconnectAttempts = maxReconnectAttempts;
     }
   }
 }

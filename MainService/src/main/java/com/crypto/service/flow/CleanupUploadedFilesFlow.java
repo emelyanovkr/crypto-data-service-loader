@@ -1,10 +1,10 @@
 package com.crypto.service.flow;
 
-import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
+import com.crypto.service.util.FlowsUtil;
 import com.flower.anno.flow.FlowType;
 import com.flower.anno.flow.State;
 import com.flower.anno.functions.SimpleStepFunction;
@@ -34,6 +34,12 @@ public class CleanupUploadedFilesFlow {
 
   protected final MainFlowsConfig mainFlowsConfig;
   protected static int WORK_CYCLE_TIME_HOURS;
+  protected static int SLEEP_ON_RECONNECT_MS;
+  protected static int MAX_RECONNECT_ATTEMPTS;
+  protected static final String GET_MIN_FILES_DATE_ERROR_MSG =
+      "ERROR ACQUIRING MIN TICKER FILES DATE";
+  protected static final String GET_TICKER_FILES_ON_STATUS_ERROR_MSG =
+      "CAN'T GET TICKER FILES ON STATUS";
 
   protected static final String CREATE_DATE_COLUMN = "create_date";
   protected static final String MIN_SQL_FUNCTION_NAME = "MIN";
@@ -47,6 +53,9 @@ public class CleanupUploadedFilesFlow {
   public CleanupUploadedFilesFlow(MainFlowsConfig mainFLowsConfig, String rootPath) {
     this.mainFlowsConfig = mainFLowsConfig;
     WORK_CYCLE_TIME_HOURS = mainFlowsConfig.getCleanupUploadedFilesConfig().getWorkCycleTimeHours();
+    SLEEP_ON_RECONNECT_MS = mainFlowsConfig.getCleanupUploadedFilesConfig().getSleepOnReconnectMs();
+    MAX_RECONNECT_ATTEMPTS =
+        mainFlowsConfig.getCleanupUploadedFilesConfig().getMaxReconnectAttempts();
 
     this.clickHouseDAO = new ClickHouseDAO();
     this.rootPath = rootPath;
@@ -59,26 +68,33 @@ public class CleanupUploadedFilesFlow {
       @Out OutPrm<LocalDate> lastDateOfUploadedFile,
       @StepRef Transition PREPARE_TO_CLEAN_FILES,
       @StepRef Transition CLEANUP_FILES) {
+
     LocalDate currentDate = LocalDate.now();
-    LocalDate firstFileUploadDateAcquired;
-    LocalDate lastFileUploadDateAcquired;
-    try {
-      firstFileUploadDateAcquired =
-          clickHouseDAO.selectFinishedTickerFilesDate(
-              MIN_SQL_FUNCTION_NAME,
-              CREATE_DATE_COLUMN,
-              Tables.TICKER_FILES.getTableName(),
-              TickerFile.FileStatus.FINISHED);
-      lastFileUploadDateAcquired =
-          clickHouseDAO.selectFinishedTickerFilesDate(
-              MAX_SQL_FUNCTION_NAME,
-              CREATE_DATE_COLUMN,
-              Tables.TICKER_FILES.getTableName(),
-              TickerFile.FileStatus.FINISHED);
-    } catch (Exception e) {
-      LOGGER.error("ERROR ACQUIRING MIN TICKER FILES DATE - ", e);
-      throw new RuntimeException(e);
-    }
+    LocalDate firstFileUploadDateAcquired =
+        FlowsUtil.manageRetryOperation(
+            SLEEP_ON_RECONNECT_MS,
+            MAX_RECONNECT_ATTEMPTS,
+            LOGGER,
+            GET_MIN_FILES_DATE_ERROR_MSG,
+            () ->
+                clickHouseDAO.selectFinishedTickerFilesDate(
+                    MIN_SQL_FUNCTION_NAME,
+                    CREATE_DATE_COLUMN,
+                    Tables.TICKER_FILES.getTableName(),
+                    TickerFile.FileStatus.FINISHED));
+
+    LocalDate lastFileUploadDateAcquired =
+        FlowsUtil.manageRetryOperation(
+            SLEEP_ON_RECONNECT_MS,
+            MAX_RECONNECT_ATTEMPTS,
+            LOGGER,
+            GET_MIN_FILES_DATE_ERROR_MSG,
+            () ->
+                clickHouseDAO.selectFinishedTickerFilesDate(
+                    MAX_SQL_FUNCTION_NAME,
+                    CREATE_DATE_COLUMN,
+                    Tables.TICKER_FILES.getTableName(),
+                    TickerFile.FileStatus.FINISHED));
 
     firstDateOfUploadedFile.setOutValue(firstFileUploadDateAcquired);
     lastDateOfUploadedFile.setOutValue(lastFileUploadDateAcquired);
@@ -120,8 +136,15 @@ public class CleanupUploadedFilesFlow {
               Files.newDirectoryStream(dateDir, Files::isRegularFile)) {
             for (Path file : fileStream) {
               String requestedStatus =
-                  clickHouseDAO.selectFileStatusOnFilename(
-                      Tables.TICKER_FILES.getTableName(), file.getFileName().toString());
+                  FlowsUtil.manageRetryOperation(
+                      SLEEP_ON_RECONNECT_MS,
+                      MAX_RECONNECT_ATTEMPTS,
+                      LOGGER,
+                      GET_TICKER_FILES_ON_STATUS_ERROR_MSG,
+                      () ->
+                          clickHouseDAO.selectFileStatusOnFilename(
+                              Tables.TICKER_FILES.getTableName(), file.getFileName().toString()));
+
               TickerFile.FileStatus parsedFileStatus =
                   TickerFile.FileStatus.valueOf(requestedStatus);
               if (parsedFileStatus == TickerFile.FileStatus.FINISHED) {
@@ -139,8 +162,6 @@ public class CleanupUploadedFilesFlow {
                 LOGGER.info("Successfully deleted directory: {}", dateDir);
               }
             }
-          } catch (ClickHouseException e) {
-            LOGGER.error("ERROR SELECTING FILE STATUS FOR DIRECTORY {} - ", dateDir, e);
           }
         }
       }

@@ -32,6 +32,7 @@ import java.time.Month;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -39,7 +40,6 @@ import static org.mockito.Mockito.*;
 @Execution(ExecutionMode.SAME_THREAD)
 public class SaveNewFilesToDbFlowTest {
 
-  private static final String CONFIG_NAME;
   private static final String TEST_FILE_A = "0000A";
   private static final String TEST_FILE_B = "0000B";
   private static final String TEST_FILE_C = "0000C";
@@ -47,43 +47,27 @@ public class SaveNewFilesToDbFlowTest {
   private static final String TEST_FILE_X = "0000X";
 
   @Mock private ClickHouseDAO clickHouseDAO;
-  @Mock private ClickHouseNode clickHouseNode;
+  @Mock private static ClickHouseNode clickHouseNode;
   @Mock Transition INIT_DIRECTORY_WATCHER_SERVICE;
   @Mock Transition GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER;
   @Mock Transition TRY_TO_FLUSH_BUFFER;
   @Mock Transition POST_FLUSH;
 
-  private static final LocalDate TEST_DATE;
-  private static final String TEST_DATA_PATH;
+  private static LocalDate TEST_DATE;
+  private static String TEST_DATA_PATH;
 
-  static {
-    try {
-      CONFIG_NAME = "application.yaml";
-      TEST_DATE = LocalDate.of(2024, Month.AUGUST, 8);
-      TEST_DATA_PATH = Paths.get(Resources.getResource("TestData").toURI()).toString();
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  @BeforeEach
-  public void setUp() {
-    ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
+  @BeforeAll
+  public static void setUp() throws URISyntaxException {
     try (MockedStatic<ConnectionHandler> mockedConnection =
         Mockito.mockStatic(ConnectionHandler.class)) {
       mockedConnection.when(ConnectionHandler::initClickHouseConnection).thenReturn(clickHouseNode);
 
-      MainApplication.applicationConfig =
-          mapper.readValue(Resources.getResource(CONFIG_NAME), ApplicationConfig.class);
+      SaveNewFilesToDbFlow.DISCOVERY_FILES_TIMEOUT_SEC = 5;
+      SaveNewFilesToDbFlow.MAX_RECONNECT_ATTEMPTS = 3;
+      SaveNewFilesToDbFlow.SLEEP_ON_RECONNECT_MS = 500;
 
-      MainApplication.applicationConfig
-          .getMainFlowsConfig()
-          .getDiscoverNewFilesConfig()
-          .setFlushDiscoveredFilesTimeoutSec(5);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+      TEST_DATE = LocalDate.of(2024, Month.AUGUST, 8);
+      TEST_DATA_PATH = Paths.get(Resources.getResource("TestData").toURI()).toString();
     }
   }
 
@@ -164,7 +148,7 @@ public class SaveNewFilesToDbFlowTest {
                     Thread.sleep(500);
                   }
 
-                } catch (IOException | InterruptedException e) {
+                } catch (InterruptedException e) {
                   throw new RuntimeException(e);
                 }
               },
@@ -190,6 +174,26 @@ public class SaveNewFilesToDbFlowTest {
     } catch (IOException | InterruptedException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @Test
+  public void todayDateIsNotExistExceptionShouldBeThrown() {
+    FlowerOutPrm<WatchService> watchService = new FlowerOutPrm<>();
+    String notExistentDir = Paths.get(TEST_DATA_PATH, "NO_DIR").toString();
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            SaveNewFilesToDbFlow.INIT_DIRECTORY_WATCHER_SERVICE(
+                notExistentDir, watchService, GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER));
+  }
+
+  @Test
+  public void todayDateIsNotExistLastDateShouldBeChosen() {
+    FlowerOutPrm<WatchService> watchService = new FlowerOutPrm<>();
+    SaveNewFilesToDbFlow.INIT_DIRECTORY_WATCHER_SERVICE(
+        TEST_DATA_PATH, watchService, GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER);
+    assertEquals(SaveNewFilesToDbFlow.CHOSEN_DATE, TEST_DATE);
+
   }
 
   // TRY_TO_FLUSH_BUFFER should send to database only files that are not loaded into the database
