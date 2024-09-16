@@ -1,11 +1,10 @@
 package com.crypto.service.flow;
 
-import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
-import com.crypto.service.util.WorkersUtil;
+import com.crypto.service.util.FlowsUtil;
 import com.flower.anno.flow.FlowType;
 import com.flower.anno.flow.State;
 import com.flower.anno.functions.SimpleStepFunction;
@@ -29,6 +28,13 @@ public class ProceedFilesStatusFlow {
 
   protected final MainFlowsConfig mainFlowsConfig;
   protected static int WORK_CYCLE_TIME_SEC;
+  protected static int SLEEP_ON_RECONNECT_MS;
+  protected static int MAX_RECONNECT_ATTEMPTS;
+
+  protected static final String GET_TICKER_FILES_INFO_ERROR_MSG =
+      "CAN'T RETRIEVE TICKER FILES INFO";
+  protected static final String UPDATE_FILE_STATUS_ERROR_MSG =
+      "CAN'T UPDATE TICKER FILE STATUS ON CHANGES";
 
   @State protected final ClickHouseDAO clickHouseDAO;
   @State protected List<TickerFile> tickerFiles;
@@ -36,6 +42,9 @@ public class ProceedFilesStatusFlow {
   public ProceedFilesStatusFlow(MainFlowsConfig mainFlowsConfig) {
     this.mainFlowsConfig = mainFlowsConfig;
     WORK_CYCLE_TIME_SEC = mainFlowsConfig.getProceedFilesStatusConfig().getWorkCycleTimeSec();
+    SLEEP_ON_RECONNECT_MS = mainFlowsConfig.getProceedFilesStatusConfig().getSleepOnReconnectMs();
+    MAX_RECONNECT_ATTEMPTS =
+        mainFlowsConfig.getProceedFilesStatusConfig().getMaxReconnectAttempts();
 
     this.clickHouseDAO = new ClickHouseDAO();
     this.tickerFiles = new ArrayList<>();
@@ -46,16 +55,18 @@ public class ProceedFilesStatusFlow {
       @In(throwIfNull = true) ClickHouseDAO clickHouseDAO,
       @Out OutPrm<List<TickerFile>> tickerFiles,
       @StepRef Transition PROCEED_FILES_STATUS) {
-    try {
-      tickerFiles.setOutValue(
-          clickHouseDAO.selectTickerFilesNamesOnStatus(
-              Tables.TICKER_FILES.getTableName(),
-              TickerFile.FileStatus.DISCOVERED,
-              TickerFile.FileStatus.DOWNLOADING));
-    } catch (ClickHouseException e) {
-      LOGGER.error("CAN'T RETRIEVE TICKER FILES INFO - ", e);
-      throw new RuntimeException(e);
-    }
+    List<TickerFile> acquiredTickerFiles =
+        FlowsUtil.manageRetryOperation(
+            SLEEP_ON_RECONNECT_MS,
+            MAX_RECONNECT_ATTEMPTS,
+            LOGGER,
+            GET_TICKER_FILES_INFO_ERROR_MSG,
+            () ->
+                clickHouseDAO.selectTickerFilesNamesOnStatus(
+                    Tables.TICKER_FILES.getTableName(),
+                    TickerFile.FileStatus.DISCOVERED,
+                    TickerFile.FileStatus.DOWNLOADING));
+    tickerFiles.setOutValue(acquiredTickerFiles);
     return PROCEED_FILES_STATUS;
   }
 
@@ -78,14 +89,23 @@ public class ProceedFilesStatusFlow {
       }
     }
 
-    if (changesCounter > 0) {
-      WorkersUtil.changeTickerFileUpdateStatus(
-          clickHouseDAO, tickerFiles, TickerFile.FileStatus.DOWNLOADING);
-      WorkersUtil.changeTickerFileUpdateStatus(
-          clickHouseDAO, tickerFiles, TickerFile.FileStatus.READY_FOR_PROCESSING);
+    int finalChangesCounter = changesCounter;
+    FlowsUtil.manageRetryOperation(
+        SLEEP_ON_RECONNECT_MS,
+        MAX_RECONNECT_ATTEMPTS,
+        LOGGER,
+        UPDATE_FILE_STATUS_ERROR_MSG,
+        () -> {
+          if (finalChangesCounter > 0) {
+            FlowsUtil.changeTickerFileUpdateStatus(
+                clickHouseDAO, tickerFiles, TickerFile.FileStatus.DOWNLOADING);
+            FlowsUtil.changeTickerFileUpdateStatus(
+                clickHouseDAO, tickerFiles, TickerFile.FileStatus.READY_FOR_PROCESSING);
 
-      LOGGER.info("Processed {} ticker files", changesCounter);
-    }
+            LOGGER.info("Processed {} ticker files", finalChangesCounter);
+          }
+          return null;
+        });
 
     return RETRIEVE_TICKER_FILES_INFO.setDelay(Duration.ofSeconds(WORK_CYCLE_TIME_SEC));
   }

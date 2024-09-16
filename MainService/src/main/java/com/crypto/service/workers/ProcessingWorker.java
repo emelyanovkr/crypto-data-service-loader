@@ -4,7 +4,7 @@ import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
-import com.crypto.service.util.WorkersUtil;
+import com.crypto.service.util.FlowsUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,8 +58,14 @@ public class ProcessingWorker implements Runnable {
     }
 
     if (changesCounter > 0) {
-      WorkersUtil.changeTickerFileUpdateStatus(clickHouseDAO, tickerFiles, TickerFile.FileStatus.DOWNLOADING);
-      WorkersUtil.changeTickerFileUpdateStatus(clickHouseDAO, tickerFiles, TickerFile.FileStatus.READY_FOR_PROCESSING);
+      try {
+        FlowsUtil.changeTickerFileUpdateStatus(
+            clickHouseDAO, tickerFiles, TickerFile.FileStatus.DOWNLOADING);
+        FlowsUtil.changeTickerFileUpdateStatus(
+            clickHouseDAO, tickerFiles, TickerFile.FileStatus.READY_FOR_PROCESSING);
+      } catch (ClickHouseException e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 }

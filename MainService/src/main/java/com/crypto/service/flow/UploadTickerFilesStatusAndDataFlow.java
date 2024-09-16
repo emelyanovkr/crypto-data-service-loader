@@ -1,12 +1,11 @@
 package com.crypto.service.flow;
 
-import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
 import com.crypto.service.data.TickersDataLoader;
-import com.crypto.service.util.WorkersUtil;
+import com.crypto.service.util.FlowsUtil;
 import com.flower.anno.flow.FlowType;
 import com.flower.anno.flow.State;
 import com.flower.anno.functions.SimpleStepFunction;
@@ -39,6 +38,12 @@ public class UploadTickerFilesStatusAndDataFlow {
 
   protected final MainFlowsConfig mainFlowsConfig;
   protected static int WORK_CYCLE_TIME_SEC;
+  protected static int SLEEP_ON_RECONNECT_MS;
+  protected static int MAX_RECONNECT_ATTEMPTS;
+  protected static final String GET_TICKER_FILES_ON_STATUS_ERROR_MSG =
+      "CAN'T GET TICKER FILES ON STATUS";
+  protected static final String UPDATE_FILE_STATUS_ERROR_MSG =
+      "CAN'T UPDATE TICKER FILE STATUS ON CHANGES";
 
   @State protected String directoryPath;
   @State protected ClickHouseDAO clickHouseDAO;
@@ -48,6 +53,8 @@ public class UploadTickerFilesStatusAndDataFlow {
   public UploadTickerFilesStatusAndDataFlow(MainFlowsConfig mainFlowsConfig, String directoryPath) {
     this.mainFlowsConfig = mainFlowsConfig;
     WORK_CYCLE_TIME_SEC = mainFlowsConfig.getUploadTickersDataConfig().getWorkCycleTimeSec();
+    SLEEP_ON_RECONNECT_MS = mainFlowsConfig.getUploadTickersDataConfig().getSleepOnReconnectMs();
+    MAX_RECONNECT_ATTEMPTS = mainFlowsConfig.getUploadTickersDataConfig().getMaxReconnectAttempts();
 
     this.directoryPath = directoryPath;
     this.clickHouseDAO = new ClickHouseDAO();
@@ -59,22 +66,33 @@ public class UploadTickerFilesStatusAndDataFlow {
       @Out OutPrm<List<TickerFile>> tickerFiles,
       @In(throwIfNull = true) ClickHouseDAO clickHouseDAO,
       @StepRef Transition FILL_PATHS_LIST) {
-    try {
-      List<TickerFile> tickerFilesVal =
-          clickHouseDAO.selectTickerFilesNamesOnStatus(
-              Tables.TICKER_FILES.getTableName(), TickerFile.FileStatus.READY_FOR_PROCESSING);
 
-      tickerFiles.setOutValue(tickerFilesVal);
+    List<TickerFile> tickerFilesVal =
+        FlowsUtil.manageRetryOperation(
+            SLEEP_ON_RECONNECT_MS,
+            MAX_RECONNECT_ATTEMPTS,
+            LOGGER,
+            GET_TICKER_FILES_ON_STATUS_ERROR_MSG,
+            () ->
+                clickHouseDAO.selectTickerFilesNamesOnStatus(
+                    Tables.TICKER_FILES.getTableName(),
+                    TickerFile.FileStatus.READY_FOR_PROCESSING));
 
-      clickHouseDAO.updateTickerFilesStatus(
-          TickerFile.getSQLFileNames(tickerFilesVal),
-          TickerFile.FileStatus.IN_PROGRESS,
-          Tables.TICKER_FILES.getTableName());
+    tickerFiles.setOutValue(tickerFilesVal);
 
-    } catch (ClickHouseException e) {
-      // TODO: reconnect logic
-      throw new RuntimeException(e);
-    }
+    FlowsUtil.manageRetryOperation(
+        SLEEP_ON_RECONNECT_MS,
+        MAX_RECONNECT_ATTEMPTS,
+        LOGGER,
+        UPDATE_FILE_STATUS_ERROR_MSG,
+        () -> {
+          clickHouseDAO.updateTickerFilesStatus(
+              TickerFile.getSQLFileNames(tickerFilesVal),
+              TickerFile.FileStatus.IN_PROGRESS,
+              Tables.TICKER_FILES.getTableName());
+          return null;
+        });
+
     return FILL_PATHS_LIST;
   }
 
@@ -131,6 +149,9 @@ public class UploadTickerFilesStatusAndDataFlow {
       return Futures.immediateFuture(
           RETRIEVE_PREPARED_FILES.setDelay(Duration.ofSeconds(WORK_CYCLE_TIME_SEC)));
     }
+
+    filePaths.sort(Comparator.comparing(file -> file.getFileName().toString()));
+
     TickersDataLoader dataLoader = new TickersDataLoader(filePaths, tickerFiles);
 
     LOGGER.info("Ready to upload {} tickers files data", tickerFiles.size());
@@ -153,28 +174,35 @@ public class UploadTickerFilesStatusAndDataFlow {
       Map<ListenableFuture<Void>, List<TickerFile>> map,
       List<TickerFile> tickerFiles,
       long uploadingStartTime) {
-    {
-      for (Map.Entry<ListenableFuture<Void>, List<TickerFile>> ent : map.entrySet()) {
-        ListenableFuture<Void> future = ent.getKey();
-        try {
-          future.get();
-          WorkersUtil.changeTickerFileUpdateStatus(
-              clickHouseDAO, ent.getValue(), TickerFile.FileStatus.FINISHED);
-          WorkersUtil.changeTickerFileUpdateStatus(
-              clickHouseDAO, ent.getValue(), TickerFile.FileStatus.ERROR);
-        } catch (Exception e) {
-          LOGGER.error("UPLOADING TICKERS DATA FUTURES EXCEPTION - ", e);
-        }
-      }
 
-      DecimalFormat df = new DecimalFormat("0.00");
-      double totalUploadingTime = (double) (System.currentTimeMillis() - uploadingStartTime) / 1000;
-      String totalUploadingTimeStr = df.format(totalUploadingTime);
+    FlowsUtil.manageRetryOperation(
+        SLEEP_ON_RECONNECT_MS,
+        MAX_RECONNECT_ATTEMPTS,
+        LOGGER,
+        UPDATE_FILE_STATUS_ERROR_MSG,
+        () -> {
+          for (Map.Entry<ListenableFuture<Void>, List<TickerFile>> ent : map.entrySet()) {
+            ListenableFuture<Void> future = ent.getKey();
+            try {
+              future.get();
+              FlowsUtil.changeTickerFileUpdateStatus(
+                  clickHouseDAO, ent.getValue(), TickerFile.FileStatus.FINISHED);
+              FlowsUtil.changeTickerFileUpdateStatus(
+                  clickHouseDAO, ent.getValue(), TickerFile.FileStatus.ERROR);
+            } catch (Exception e) {
+              LOGGER.error("UPLOADING TICKERS DATA FUTURES EXCEPTION - ", e);
+            }
+          }
+          return null;
+        });
 
-      LOGGER.info(
-          "Finished uploading {} tickers files data: {} sec.",
-          tickerFiles.size(),
-          totalUploadingTimeStr);
-    }
+    DecimalFormat df = new DecimalFormat("0.00");
+    double totalUploadingTime = (double) (System.currentTimeMillis() - uploadingStartTime) / 1000;
+    String totalUploadingTimeStr = df.format(totalUploadingTime);
+
+    LOGGER.info(
+        "Finished uploading {} tickers files data: {} sec.",
+        tickerFiles.size(),
+        totalUploadingTimeStr);
   }
 }

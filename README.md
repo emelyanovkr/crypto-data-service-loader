@@ -1,6 +1,6 @@
 # crypto-data-service-loader
 ## About program
-A standalone service that handles uploading ticker data to **Clickhouse**. Data from Clickhouse is used in **Grafana** for analytics.  
+A standalone robust service that handles uploading ticker data to **Clickhouse**. Data from Clickhouse is used in **Grafana** for analytics.  
 All flows are using *lightweight workflow engine* - [Flower](https://github.com/ja-css/flower).
 
 The file containing ticker data has the following format name:

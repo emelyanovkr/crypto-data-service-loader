@@ -3,7 +3,7 @@
     <Appenders>
         <ClickHouseAppender name="ClickHouseAppender" ignoreExceptions="false"
                             bufferSize=""
-                            timeout=""
+                            flushTimeoutSec=""
                             tableName="">
 
             <ConnectionSettings HOST=""

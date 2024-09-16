@@ -139,7 +139,11 @@ public class TickersDataLoader {
           taskFuture.set(null);
           break;
         } catch (Exception e) {
-          LOGGER.error("FAILED TO INSERT TICKERS DATA - ", e);
+          LOGGER.error(
+              "FAILED TO INSERT TICKERS DATA, TRYING TO RECONNECT IN {} ms. RETRY #{} EXCEPTION: ",
+              i,
+              SLEEP_ON_RECONNECT_MS,
+              e);
 
           stopCompressionCommand.set(true);
 

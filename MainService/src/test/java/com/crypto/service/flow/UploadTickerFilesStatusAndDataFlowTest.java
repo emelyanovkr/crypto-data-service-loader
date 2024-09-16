@@ -4,12 +4,13 @@ import com.clickhouse.client.ClickHouseException;
 import com.crypto.service.dao.ClickHouseDAO;
 import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
-import com.crypto.service.util.WorkersUtil;
+import com.crypto.service.util.FlowsUtil;
 import com.flower.conf.Transition;
 import com.flower.engine.function.FlowerOutPrm;
 import com.google.common.io.Resources;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -36,24 +37,23 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 public class UploadTickerFilesStatusAndDataFlowTest {
 
-  private static final String TEST_DATA_PATH;
+  private static String TEST_DATA_PATH;
   private static final String TEST_FILE_A = "0000A";
   private static final String TEST_FILE_C = "0000C";
   private static final String TEST_FILE_G = "0000G";
   private static final String TEST_FILE_I = "0000I";
 
-  static {
-    try {
-      TEST_DATA_PATH = Paths.get(Resources.getResource("TestData").toURI()).toString();
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   @Mock ClickHouseDAO clickHouseDAO;
   @Mock Transition UPLOAD_TICKERS_FILES_DATA;
   @Mock Transition FILL_PATHS_LIST;
   @Mock Transition RETRIEVE_PREPARED_FILES;
+
+  @BeforeAll
+  public static void setUp() throws URISyntaxException {
+    TEST_DATA_PATH = Paths.get(Resources.getResource("TestData").toURI()).toString();
+    UploadTickerFilesStatusAndDataFlow.MAX_RECONNECT_ATTEMPTS = 3;
+    UploadTickerFilesStatusAndDataFlow.SLEEP_ON_RECONNECT_MS = 500;
+  }
 
   // Checking that clickhouseDAO called with correct parameters
   @Test
@@ -147,16 +147,19 @@ public class UploadTickerFilesStatusAndDataFlowTest {
     List<TickerFile> tickerFiles =
         List.of(new TickerFile(TEST_FILE_A, LocalDate.now(), TickerFile.FileStatus.FINISHED));
     SettableFuture<Void> future = SettableFuture.create();
-    Map<ListenableFuture<Void>, List<TickerFile>> map =
-        Map.of(future, tickerFiles);
+    Map<ListenableFuture<Void>, List<TickerFile>> map = Map.of(future, tickerFiles);
 
     future.set(null);
 
-    try (MockedStatic<WorkersUtil> mockedWorkersUtil = mockStatic(WorkersUtil.class)) {
-      UploadTickerFilesStatusAndDataFlow.handleUpdateStatus(clickHouseDAO, map, tickerFiles, System.currentTimeMillis());
+    try (MockedStatic<FlowsUtil> mockedWorkersUtil = mockStatic(FlowsUtil.class)) {
+      mockedWorkersUtil
+          .when(FlowsUtil.manageRetryOperation(anyInt(), anyInt(), any(), anyString(), any()))
+          .thenCallRealMethod();
+
+      UploadTickerFilesStatusAndDataFlow.handleUpdateStatus(
+          clickHouseDAO, map, tickerFiles, System.currentTimeMillis());
       mockedWorkersUtil.verify(
-          () -> WorkersUtil.changeTickerFileUpdateStatus(any(), anyList(), any()),
-          Mockito.times(2));
+          () -> FlowsUtil.changeTickerFileUpdateStatus(any(), anyList(), any()), Mockito.times(2));
     }
   }
 }
