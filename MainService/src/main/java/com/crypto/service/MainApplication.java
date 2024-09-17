@@ -45,12 +45,11 @@ public class MainApplication {
       tickersDataConfig.getTickersDataUploaderConfig().setTickersDataPath(args[0]);
       DATA_PATH = tickersDataConfig.getTickersDataUploaderConfig().getTickersDataPath();
 
-      System.out.println(DATA_PATH);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
 
-    // initAndLaunchFlows();
+    initAndLaunchFlows();
   }
 
   public static void initAndLaunchFlows() {
