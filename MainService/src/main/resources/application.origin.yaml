@@ -24,12 +24,20 @@ MainFlowsConfig:
   DiscoverNewFilesConfig:
     filesBufferSize: 8192
     flushDiscoveredFilesTimeoutSec: 15 # almost the same as work_cycle_time_sec
+    sleepOnReconnectMs: 3000
+    maxReconnectAttempts: 3
 
   ProceedFilesStatusConfig:
-    workCycleTimeSec: 30
+    workCycleTimeSec: 20
+    sleepOnReconnectMs: 3000
+    maxReconnectAttempts: 3
 
   UploadTickersDataConfig:
-    workCycleTimeSec: 60
+    workCycleTimeSec: 30
+    sleepOnReconnectMs: 3000
+    maxReconnectAttempts: 3
 
   CleanupUploadedFilesConfig:
     workCycleTimeHours: 3
+    sleepOnReconnectMs: 3000
+    maxReconnectAttempts: 3

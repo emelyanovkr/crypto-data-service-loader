@@ -42,7 +42,9 @@ public class MainApplication {
       databaseConfig = applicationConfig.getDatabaseConfig();
       mainFlowsConfig = applicationConfig.getMainFlowsConfig();
 
+      tickersDataConfig.getTickersDataUploaderConfig().setTickersDataPath(args[0]);
       DATA_PATH = tickersDataConfig.getTickersDataUploaderConfig().getTickersDataPath();
+
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
