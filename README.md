@@ -1,6 +1,6 @@
 # crypto-data-service-loader
 ## About program
-A standalone robust service that handles uploading ticker data to **Clickhouse**. Data from Clickhouse is used in **Grafana** for analytics.  
+A standalone multithreaded service that handles uploading ticker data to **Clickhouse**. Data from Clickhouse is used in **Grafana** for analytics.  
 All flows are using *lightweight workflow engine* - [Flower](https://github.com/ja-css/flower).
 
 The file containing ticker data has the following format name:
@@ -70,7 +70,7 @@ The log message in the database contains the message itself and its timestamp. T
 ### Testing
 
 [Tests](/MainService/src/test/java/com/crypto/service/) are written using `JUnit 5 and Mockito`.  
-The coverage of methods and classes in flows package reaches **78%**.
+The coverage of methods and classes in flows package reaches **79%**.
 
 ## Flows Diagram
 ### 1. Save new files to database flow
