@@ -8,17 +8,16 @@ import org.slf4j.Logger;
 
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.stream.Collectors;
 
 public class FlowsUtil {
+  private FlowsUtil() {}
+
   public static void changeTickerFileUpdateStatus(
       ClickHouseDAO clickHouseDAO, List<TickerFile> tickerFiles, TickerFile.FileStatus status)
       throws ClickHouseException {
     clickHouseDAO.updateTickerFilesStatus(
         TickerFile.getSQLFileNames(
-            tickerFiles.stream()
-                .filter(tickerFile -> tickerFile.getStatus() == status)
-                .collect(Collectors.toList())),
+            tickerFiles.stream().filter(tickerFile -> tickerFile.getStatus() == status).toList()),
         status,
         Tables.TICKER_FILES.getTableName());
   }
@@ -34,7 +33,7 @@ public class FlowsUtil {
         return operation.call();
       } catch (Exception e) {
         LOGGER.error(
-            "{}, RETRYING #{} IN {} MS - ", errorMsg, currentAttempt, SLEEP_ON_RECONNECT_MS, e);
+            "{}, RETRYING #{} IN {} MS - ", errorMsg, currentAttempt + 1, SLEEP_ON_RECONNECT_MS, e);
 
         if (currentAttempt < MAX_RECONNECT_ATTEMPTS - 1) {
           try {

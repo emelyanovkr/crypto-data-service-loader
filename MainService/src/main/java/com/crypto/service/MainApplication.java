@@ -31,7 +31,6 @@ public class MainApplication {
   public static String DATA_PATH;
 
   public static void main(String[] args) {
-
     ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
