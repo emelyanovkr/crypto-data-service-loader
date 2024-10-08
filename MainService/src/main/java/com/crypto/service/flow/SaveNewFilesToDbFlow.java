@@ -38,8 +38,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @FlowType(firstStep = "RETRIEVE_FILE_NAMES_LIST_ON_START")
 public class SaveNewFilesToDbFlow {
   protected static final Logger LOGGER = LoggerFactory.getLogger(SaveNewFilesToDbFlow.class);
-  private static WatchService watcherService;
-
   protected final MainFlowsConfig mainFlowsConfig;
   protected static int FILES_BUFFER_SIZE;
   protected static int DISCOVERY_FILES_TIMEOUT_SEC;
@@ -51,7 +49,7 @@ public class SaveNewFilesToDbFlow {
   protected static final String GET_EXCLUSIVE_TICKER_FILES_ERROR_MSG =
       "CAN'T SELECT EXCLUSIVE TICKER FILES NAMES";
 
-  protected static LocalDate CHOSEN_DATE;
+  @State protected static LocalDate CHOSEN_DATE = LocalDate.EPOCH;
 
   @State protected final ClickHouseDAO clickHouseDAO;
   @State protected final String rootPath;
@@ -123,14 +121,28 @@ public class SaveNewFilesToDbFlow {
   @SimpleStepFunction
   public static Transition INIT_DIRECTORY_WATCHER_SERVICE(
       @In String rootPath,
-      @Out OutPrm<WatchService> watcher,
+      @InOut(throwIfNull = true, out = Output.OPTIONAL) InOutPrm<LocalDate> CHOSEN_DATE,
+      @InOut(throwIfNull = true) InOutPrm<WatchService> watcher,
+      @StepRef Transition INIT_DIRECTORY_WATCHER_SERVICE,
       @StepRef Transition GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER) {
-    // TODO: close previous watcher
-    // watchService.close();
-    try {
-      WatchService watcherService = FileSystems.getDefault().newWatchService();
-      Path watchedDirectory = Path.of(rootPath + "/" + LocalDate.now());
 
+    WatchService watcherService = watcher.getInValue();
+    if (watcherService != null) {
+      try {
+        watcherService.close();
+        LOGGER.info("Watcher service closed successfully. Reinit watcher.");
+      } catch (IOException e) {
+        LOGGER.error("CAN'T CLOSE WATCHER SERVICE - ", e);
+        LOGGER.info("Attempt to reinit watcher service");
+        return INIT_DIRECTORY_WATCHER_SERVICE.setDelay(Duration.ofMillis(SLEEP_ON_RECONNECT_MS));
+      }
+    }
+    try {
+      watcherService = FileSystems.getDefault().newWatchService();
+      LocalDate chosenDateLocal = LocalDate.now();
+      Path watchedDirectory = Path.of(rootPath + "/" + chosenDateLocal);
+
+      CHOSEN_DATE.setOutValue(chosenDateLocal);
       if (!Files.exists(watchedDirectory)) {
         Optional<Path> lastDirectory =
             Files.list(Path.of(rootPath)).filter(Files::isDirectory).max(Comparator.naturalOrder());
@@ -139,7 +151,7 @@ public class SaveNewFilesToDbFlow {
               "ERROR ACQUIRING TODAY'S DIRECTORY - {}, LAST DATE DIR IS TAKEN - {}",
               LocalDate.now(),
               lastDirectory.get().getFileName());
-          CHOSEN_DATE = LocalDate.parse(lastDirectory.get().getFileName().toString());
+          CHOSEN_DATE.setOutValue(LocalDate.parse(lastDirectory.get().getFileName().toString()));
           watchedDirectory = lastDirectory.get();
         } else {
           LOGGER.error("NO SUITABLE DIRECTORY FOUND FOR WATCHER SERVICE, EXIT.");
@@ -147,7 +159,7 @@ public class SaveNewFilesToDbFlow {
         }
       }
 
-      watchedDirectory.register(watcherService, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
+      watchedDirectory.register(watcherService, ENTRY_CREATE);
       LOGGER.info("Directory watcher started - {}", watchedDirectory);
 
       watcher.setOutValue(watcherService);
@@ -171,13 +183,6 @@ public class SaveNewFilesToDbFlow {
         if (kind == ENTRY_CREATE) {
           filesBuffer.add(new TickerFile(event.context().toString(), CHOSEN_DATE, null));
         }
-        /*
-        else if (kind == ENTRY_DELETE) {
-          System.out.println("ENTRY DELETED: " + event.context().toString());
-        } else if (kind == ENTRY_MODIFY) {
-          System.out.println("ENTRY MODIFIED: " + event.context().toString());
-        }
-        */
       }
 
       boolean valid = key.reset();
@@ -249,11 +254,16 @@ public class SaveNewFilesToDbFlow {
 
   @SimpleStepFunction
   public static Transition POST_FLUSH(
+      @In(throwIfNull = true) LocalDate CHOSEN_DATE,
       @StepRef Transition INIT_DIRECTORY_WATCHER_SERVICE,
       @StepRef Transition GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER) {
-    // TODO: Determine if we need to reinit watcher
-    // return
-    // INIT_DIRECTORY_WATCHER_SERVICE.setDelay(Duration.ofSeconds(DISCOVERY_FILES_TIMEOUT_SEC));
+    LocalDate currentDate = LocalDate.now();
+    if (currentDate.getDayOfMonth() != CHOSEN_DATE.getDayOfMonth()) {
+      LOGGER.info("DAY PASSED -> REINIT WATCHER SERVICE IN: {} SEC.", DISCOVERY_FILES_TIMEOUT_SEC);
+      return INIT_DIRECTORY_WATCHER_SERVICE.setDelay(
+          Duration.ofSeconds(DISCOVERY_FILES_TIMEOUT_SEC));
+    }
+
     return GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER.setDelay(
         Duration.ofSeconds(DISCOVERY_FILES_TIMEOUT_SEC));
   }

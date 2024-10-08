@@ -126,14 +126,19 @@ public class SaveNewFilesToDbFlowTest {
   // GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER should add a file to filesBuffer by causing an
   // event from WatcherService
   @Test
-  public void createAnEventForWatcherServiceAndFileBeenAddedToFilesBuffer() {
-    FlowerOutPrm<WatchService> watchService = new FlowerOutPrm<>();
+  public void createAnEventForWatcherServiceAndFileBeenAddedToFilesBuffer() throws IOException {
+    WatchService watchServiceInstance = FileSystems.getDefault().newWatchService();
+    FlowerInOutPrm<WatchService> watchService = new FlowerInOutPrm<>(watchServiceInstance);
     String TEST_FILE_NAME = TEST_FILE_X;
     try (MockedStatic<LocalDate> mockedLocalDate = Mockito.mockStatic(LocalDate.class)) {
       mockedLocalDate.when(LocalDate::now).thenReturn(TEST_DATE);
 
       SaveNewFilesToDbFlow.INIT_DIRECTORY_WATCHER_SERVICE(
-          TEST_DATA_PATH, watchService, GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER);
+          TEST_DATA_PATH,
+          new FlowerInOutPrm<>(TEST_DATE),
+          watchService,
+          INIT_DIRECTORY_WATCHER_SERVICE,
+          GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER);
 
       Queue<TickerFile> filesBuffer = new ArrayDeque<>();
 
@@ -177,23 +182,33 @@ public class SaveNewFilesToDbFlowTest {
   }
 
   @Test
-  public void todayDateIsNotExistExceptionShouldBeThrown() {
-    FlowerOutPrm<WatchService> watchService = new FlowerOutPrm<>();
+  public void todayDateIsNotExistExceptionShouldBeThrown() throws IOException {
+    WatchService watchServiceInstance = FileSystems.getDefault().newWatchService();
+    FlowerInOutPrm<WatchService> watchService = new FlowerInOutPrm<>(watchServiceInstance);
     String notExistentDir = Paths.get(TEST_DATA_PATH, "NO_DIR").toString();
     assertThrows(
         RuntimeException.class,
         () ->
             SaveNewFilesToDbFlow.INIT_DIRECTORY_WATCHER_SERVICE(
-                notExistentDir, watchService, GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER));
+                notExistentDir,
+                new FlowerInOutPrm<>(TEST_DATE),
+                watchService,
+                INIT_DIRECTORY_WATCHER_SERVICE,
+                GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER));
   }
 
   @Test
-  public void todayDateIsNotExistLastDateShouldBeChosen() {
-    FlowerOutPrm<WatchService> watchService = new FlowerOutPrm<>();
+  public void todayDateIsNotExistLastDateShouldBeChosen() throws IOException {
+    WatchService watchServiceInstance = FileSystems.getDefault().newWatchService();
+    FlowerInOutPrm<WatchService> watchService = new FlowerInOutPrm<>(watchServiceInstance);
+    FlowerInOutPrm<LocalDate> CHOSEN_DATE = Mockito.mock(FlowerInOutPrm.class);
     SaveNewFilesToDbFlow.INIT_DIRECTORY_WATCHER_SERVICE(
-        TEST_DATA_PATH, watchService, GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER);
-    assertEquals(SaveNewFilesToDbFlow.CHOSEN_DATE, TEST_DATE);
-
+        TEST_DATA_PATH,
+        CHOSEN_DATE,
+        watchService,
+        INIT_DIRECTORY_WATCHER_SERVICE,
+        GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER);
+    verify(CHOSEN_DATE).setOutValue(TEST_DATE);
   }
 
   // TRY_TO_FLUSH_BUFFER should send to database only files that are not loaded into the database
@@ -232,5 +247,13 @@ public class SaveNewFilesToDbFlowTest {
     } catch (ClickHouseException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @Test
+  public void dateChangedShouldCallWatcherReInit() {
+    SaveNewFilesToDbFlow.POST_FLUSH(
+        LocalDate.now().minusDays(1), INIT_DIRECTORY_WATCHER_SERVICE, POST_FLUSH);
+    verify(INIT_DIRECTORY_WATCHER_SERVICE, atLeastOnce()).setDelay(any());
+    verifyNoInteractions(POST_FLUSH);
   }
 }

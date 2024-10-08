@@ -110,7 +110,7 @@ public class TickersDataLoaderTest {
       throws ClickHouseException {
     spyInsertTask.startInsertTickers();
 
-    // should be called only 3 times, because MAX_FLUSH_ATTEMPTS = 3 IN .CONFIG FILE
+    // should be called only 10 times, because MAX_FLUSH_ATTEMPTS = 10 IN .CONFIG FILE
     verify(spyTickers.clickHouseDAO, times(spyTickers.MAX_FLUSH_DATA_ATTEMPTS))
         .insertTickersData(any(), anyString());
   }
