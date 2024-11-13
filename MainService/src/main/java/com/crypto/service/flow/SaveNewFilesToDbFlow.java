@@ -1,38 +1,36 @@
 package com.crypto.service.flow;
 
+import static java.nio.file.StandardWatchEventKinds.*;
+
 import com.crypto.service.config.MainFlowsConfig;
 import com.crypto.service.dao.ClickHouseDAO;
+import com.crypto.service.dao.Tables;
 import com.crypto.service.data.TickerFile;
 import com.crypto.service.util.FlowsUtil;
 import com.flower.anno.flow.FlowType;
 import com.flower.anno.flow.State;
-
-import java.util.*;
-import java.time.Duration;
-import com.crypto.service.dao.Tables;
 import com.flower.anno.functions.SimpleStepFunction;
 import com.flower.anno.params.common.In;
 import com.flower.anno.params.common.InOut;
 import com.flower.anno.params.common.Out;
 import com.flower.anno.params.common.Output;
 import com.flower.anno.params.transit.StepRef;
+import com.flower.conf.InOutPrm;
 import com.flower.conf.NullableInOutPrm;
 import com.flower.conf.OutPrm;
 import com.flower.conf.Transition;
-import com.flower.conf.InOutPrm;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
+import java.nio.file.*;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.time.LocalDate;
-import java.nio.file.*;
-import static java.nio.file.StandardWatchEventKinds.*;
-
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // FLOW 1
 @FlowType(firstStep = "RETRIEVE_FILE_NAMES_LIST_ON_START")
@@ -258,8 +256,13 @@ public class SaveNewFilesToDbFlow {
       @StepRef Transition INIT_DIRECTORY_WATCHER_SERVICE,
       @StepRef Transition GET_DIRECTORY_WATCHER_EVENTS_AND_ADD_TO_BUFFER) {
     LocalDate currentDate = LocalDate.now();
+
     if (currentDate.getDayOfMonth() != CHOSEN_DATE.getDayOfMonth()) {
-      LOGGER.info("DAY PASSED -> REINIT WATCHER SERVICE IN: {} SEC.", DISCOVERY_FILES_TIMEOUT_SEC);
+      LOGGER.info(
+          "FLOW - DAY PASSED ({} - {}) -> REINIT WATCHER SERVICE IN: {} SEC.",
+          currentDate,
+          CHOSEN_DATE,
+          DISCOVERY_FILES_TIMEOUT_SEC);
       return INIT_DIRECTORY_WATCHER_SERVICE.setDelay(
           Duration.ofSeconds(DISCOVERY_FILES_TIMEOUT_SEC));
     }

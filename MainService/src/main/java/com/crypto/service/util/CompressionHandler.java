@@ -3,10 +3,6 @@ package com.crypto.service.util;
 import com.crypto.service.MainApplication;
 import com.crypto.service.config.TickersDataConfig;
 import com.crypto.service.data.TickerFile;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-
 import java.io.*;
 import java.nio.file.Path;
 import java.text.DecimalFormat;
@@ -15,9 +11,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.GZIPOutputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 public class CompressionHandler {
   protected final int BUFFER_SIZE;
+  protected final int EXPECTED_COLUMNS;
   protected final PipedOutputStream pout;
   protected final Logger LOGGER = LoggerFactory.getLogger(CompressionHandler.class);
 
@@ -32,11 +32,17 @@ public class CompressionHandler {
 
     TickersDataConfig tickersDataConfig = MainApplication.applicationConfig.getTickersDataConfig();
     BUFFER_SIZE = tickersDataConfig.getCompressionHandlerConfig().getCompressionBufferSize();
+    EXPECTED_COLUMNS = tickersDataConfig.getCompressionHandlerConfig().getValidExpectedColumns();
   }
 
   public static CompressionHandler createCompressionHandler(
       PipedOutputStream pout, AtomicBoolean taskRunningStatus, AtomicBoolean stopCommand) {
     return new CompressionHandler(pout, taskRunningStatus, stopCommand);
+  }
+
+  private boolean checkLineValid(String line) {
+    String[] columns = line.split(",");
+    return columns.length == EXPECTED_COLUMNS;
   }
 
   public void compressFilesWithGZIP(List<Path> tickersPath, HashSet<TickerFile> tickerFiles) {
@@ -49,32 +55,48 @@ public class CompressionHandler {
       double totalDataCompressedSize = 0;
 
       try (GZIPOutputStream gzOut = new GZIPOutputStream(pout)) {
+        StringBuilder buffer = new StringBuilder(BUFFER_SIZE);
+
         for (Path filePath : tickersPath) {
           String fileName = filePath.getFileName().toString();
 
-          try (InputStream fin = new FileInputStream(filePath.toFile())) {
-            final byte[] buffer = new byte[BUFFER_SIZE];
-            int n;
-            while ((n = fin.read(buffer)) != -1) {
+          try (BufferedReader bufferedReader =
+              new BufferedReader(new FileReader(filePath.toFile()))) {
+            String line;
+
+            while ((line = bufferedReader.readLine()) != null) {
               if (stopCommand.get()) {
                 return;
               }
-              gzOut.write(buffer, 0, n);
-              totalDataCompressedSize += n;
-            }
 
-            Optional<TickerFile> representingFile =
-                tickerFiles.stream()
-                    .filter(tickerFile -> tickerFile.getFileName().equals(fileName))
-                    .findFirst();
-            if (representingFile.isPresent()) {
-              representingFile.get().setStatus(TickerFile.FileStatus.FINISHED);
-            } else {
-              LOGGER.error("REPRESENTING FILE IS MISSING - {}", fileName);
+              if (checkLineValid(line)) {
+                buffer.append(line).append("\n");
+
+                if (buffer.length() >= BUFFER_SIZE) {
+                  byte[] data = buffer.toString().getBytes();
+                  gzOut.write(data, 0, data.length);
+                  totalDataCompressedSize += data.length;
+                  buffer.setLength(0);
+                }
+              } else {
+                LOGGER.warn("IN FILE - {} - SKIPPING BAD LINE - {}", fileName, line);
+              }
             }
-          } catch (IOException e) {
-            LOGGER.error("READING COMPRESSION ERROR - ", e);
-            throw new RuntimeException(e);
+          }
+          if (!buffer.isEmpty()) {
+            gzOut.write(buffer.toString().getBytes());
+            totalDataCompressedSize += buffer.length();
+            buffer.setLength(0);
+          }
+
+          Optional<TickerFile> representingFile =
+              tickerFiles.stream()
+                  .filter(tickerFile -> tickerFile.getFileName().equals(fileName))
+                  .findFirst();
+          if (representingFile.isPresent()) {
+            representingFile.get().setStatus(TickerFile.FileStatus.FINISHED);
+          } else {
+            LOGGER.error("REPRESENTING FILE IS MISSING - {}", fileName);
           }
         }
       } catch (IOException e) {

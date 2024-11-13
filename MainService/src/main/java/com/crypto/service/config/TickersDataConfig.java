@@ -67,6 +67,7 @@ public class TickersDataConfig {
 
   public class CompressionHandlerConfig {
     protected int compressionBufferSize;
+    protected int validExpectedColumns;
 
     public int getCompressionBufferSize() {
       return compressionBufferSize;
@@ -74,6 +75,14 @@ public class TickersDataConfig {
 
     public void setCompressionBufferSize(int compressionBufferSize) {
       this.compressionBufferSize = compressionBufferSize;
+    }
+
+    public int getValidExpectedColumns() {
+      return validExpectedColumns;
+    }
+
+    public void setValidExpectedColumns(int validExpectedColumns) {
+      this.validExpectedColumns = validExpectedColumns;
     }
   }
 }

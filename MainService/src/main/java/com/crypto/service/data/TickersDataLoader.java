@@ -140,9 +140,10 @@ public class TickersDataLoader {
           break;
         } catch (Exception e) {
           LOGGER.error(
-              "FAILED TO INSERT TICKERS DATA, TRYING TO RECONNECT IN {} ms. RETRY #{} EXCEPTION: ",
+              "FAILED TO INSERT TICKERS DATA, TRYING TO RECONNECT IN {} ms. RETRY #{} TICKER_PATHS: {} EXCEPTION: ",
               SLEEP_ON_RECONNECT_MS,
               i,
+              tickerPathPartition,
               e);
 
           stopCompressionCommand.set(true);
