@@ -84,6 +84,7 @@ public class MainApplication {
       SaveNewFilesToDbFlow saveState = saveFilesFuture.getFuture().get();
       ProceedFilesStatusFlow proceedState = proceedFilesFuture.getFuture().get();
       UploadTickerFilesStatusAndDataFlow uploadState = uploadFilesFuture.getFuture().get();
+      CleanupUploadedFilesFlow cleanupUploadedFilesFlow = cleanUpFilesFuture.getFuture().get();
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException(e);
     }
